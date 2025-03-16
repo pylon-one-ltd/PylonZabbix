@@ -1,0 +1,357 @@
+zabbix_export:
+  version: '7.0'
+  template_groups:
+    - uuid: bf8846d58f414cd488b718c930236658
+      name: 'Templates/Pylon Templates'
+  templates:
+    - uuid: 559a3e25e49341e5824a603d18d78403
+      template: 'Pylon Cisco Switch - IOS LEGACY'
+      name: 'Pylon Cisco Switch - IOS LEGACY'
+      templates:
+        - name: 'Cisco IOS SNMP'
+      groups:
+        - name: 'Templates/Pylon Templates'
+      items:
+        - uuid: fa3f3e3800d145eb8e834cf24ed18a8a
+          name: 'StackPower Port Data'
+          type: SNMP_AGENT
+          snmp_oid: 'walk[1.3.6.1.4.1.9.9.500.1.3.2]'
+          key: cisco.stackpower.port.rawdata
+          history: '0'
+          value_type: TEXT
+          trends: '0'
+          description: 'Raw SNMPWALK data for Stackwise discovery'
+          preprocessing:
+            - type: SNMP_WALK_TO_JSON
+              parameters:
+                - operstatus
+                - 1.3.6.1.4.1.9.9.500.1.3.2.1.2
+                - '0'
+                - linkstatus
+                - 1.3.6.1.4.1.9.9.500.1.3.2.1.5
+                - '0'
+            - type: JAVASCRIPT
+              parameters:
+                - |
+                  var parsed = JSON.parse(value);
+                  for( var index = 0; index < parsed.length; ++index ) {
+                      parsed[index].port = parsed[index]['{#SNMPINDEX}'];
+                  }
+                  return JSON.stringify(parsed);
+          tags:
+            - tag: component
+              value: discovery
+        - uuid: 8c101a3234df4b98a9df009a5b62b79e
+          name: 'StackWise Port Data'
+          type: SNMP_AGENT
+          snmp_oid: 'walk[1.3.6.1.4.1.9.9.500.1.2.2]'
+          key: cisco.stackwise.port.rawdata
+          history: '0'
+          value_type: TEXT
+          trends: '0'
+          description: 'Raw SNMPWALK data for Stackwise discovery'
+          preprocessing:
+            - type: SNMP_WALK_TO_JSON
+              parameters:
+                - portstatus
+                - 1.3.6.1.4.1.9.9.500.1.2.2.1.1
+                - '0'
+                - switchid
+                - 1.3.6.1.4.1.9.9.500.1.2.2.1.2
+                - '0'
+          tags:
+            - tag: component
+              value: discovery
+        - uuid: 883745532c3547feb282c9624e47db0f
+          name: 'StackWise Switch Data'
+          type: SNMP_AGENT
+          snmp_oid: 'walk[1.3.6.1.4.1.9.9.500.1.2.1]'
+          key: cisco.stackwise.rawdata
+          history: '0'
+          value_type: TEXT
+          trends: '0'
+          description: |
+            Raw SNMPWALK data for Stackwise discovery.
+            Only returns data if there is more than one switch in the stack to prevent alerting on single unit switches
+          preprocessing:
+            - type: SNMP_WALK_TO_JSON
+              parameters:
+                - switchrole
+                - 1.3.6.1.4.1.9.9.500.1.2.1.1.3
+                - '0'
+                - switchnum
+                - 1.3.6.1.4.1.9.9.500.1.2.1.1.1
+                - '0'
+                - switchstate
+                - 1.3.6.1.4.1.9.9.500.1.2.1.1.6
+                - '0'
+            - type: JAVASCRIPT
+              parameters:
+                - |
+                  try {
+                  	var parsed = JSON.parse(value);
+                  	return parsed.length >1 ? value : "[]";
+                  } catch(error) {
+                  	return "[]";
+                  }
+          tags:
+            - tag: component
+              value: discovery
+      discovery_rules:
+        - uuid: 853014b0e99f4fc191b9886ab54f25df
+          name: 'Switch PoE Discovery'
+          type: SNMP_AGENT
+          snmp_oid: 'discovery[{#SNMPVALUE},1.3.6.1.2.1.105.1.3.1.1.3]'
+          key: net.discovery.poe
+          delay: 1h
+          lifetime: 1d
+          enabled_lifetime_type: DISABLE_NEVER
+          description: POWER-ETHERNET-MIB
+          item_prototypes:
+            - uuid: 5b76f68ac59349d78d661302a44ce1d4
+              name: 'Switch {#SNMPINDEX} - PoE Power Budget'
+              type: SNMP_AGENT
+              snmp_oid: '.1.3.6.1.2.1.105.1.3.1.1.2.{#SNMPINDEX}'
+              key: 'switch.poe.budget[{#SNMPINDEX}]'
+              delay: 5m
+              history: 90d
+              units: w
+              tags:
+                - tag: component
+                  value: power
+            - uuid: b6882837702d489c91d0c4eba8f68031
+              name: 'Switch {#SNMPINDEX} - PoE Power Usage'
+              type: SNMP_AGENT
+              snmp_oid: '.1.3.6.1.2.1.105.1.3.1.1.4.{#SNMPINDEX}'
+              key: 'switch.poe.usage[{#SNMPINDEX}]'
+              delay: 5m
+              history: 90d
+              units: w
+              tags:
+                - tag: component
+                  value: power
+            - uuid: cf1a9d34707d487f9b719171550f4404
+              name: 'Switch {#SNMPINDEX} - PoE Power Utilisation'
+              type: CALCULATED
+              key: 'switch.poe.utilisation[{#SNMPINDEX}]'
+              history: 90d
+              units: '%'
+              params: 'last(//switch.poe.usage[{#SNMPINDEX}])/last(//switch.poe.budget[{#SNMPINDEX}])*100'
+              tags:
+                - tag: component
+                  value: power
+              trigger_prototypes:
+                - uuid: e14a7743d8324b4d92477ffe8801c5f4
+                  expression: 'avg(/Pylon Cisco Switch - IOS LEGACY/switch.poe.utilisation[{#SNMPINDEX}],1m)>={$POE_WARN_PERCENT}'
+                  name: 'Switch {#SNMPINDEX} - High PoE Utilisation'
+                  opdata: 'PoE Usage: {ITEM.LASTVALUE1}%'
+                  priority: WARNING
+                  description: 'The calculated amount of PoE usage versus budget exceeds the configured warning threshold'
+                  manual_close: 'YES'
+                  dependencies:
+                    - name: 'No SNMP data collection'
+                      expression: 'max(/py-cr1-rtr-01.oob.pylonone.net/zabbix[host,snmp,available],{$SNMP.TIMEOUT})=0'
+                    - name: 'Switch {#SNMPINDEX} - PoE Budget Depleted'
+                      expression: 'avg(/Pylon Cisco Switch - IOS LEGACY/switch.poe.utilisation[{#SNMPINDEX}],1m)=100'
+                - uuid: ce58525de7c74e07ba9cfc1434ce6d9c
+                  expression: 'avg(/Pylon Cisco Switch - IOS LEGACY/switch.poe.utilisation[{#SNMPINDEX}],1m)=100'
+                  name: 'Switch {#SNMPINDEX} - PoE Budget Depleted'
+                  opdata: 'PoE Usage: {ITEM.LASTVALUE1}%'
+                  priority: AVERAGE
+                  description: 'The calculated amount of PoE usage versus budget exceeds the configured alarm threshold'
+                  manual_close: 'YES'
+                  dependencies:
+                    - name: 'No SNMP data collection'
+                      expression: 'max(/py-cr1-rtr-01.oob.pylonone.net/zabbix[host,snmp,available],{$SNMP.TIMEOUT})=0'
+                - uuid: 8f59368333224582a8238bb9d77c4986
+                  expression: 'avg(/Pylon Cisco Switch - IOS LEGACY/switch.poe.utilisation[{#SNMPINDEX}],1m)>={$POE_ALERT_PERCENT}'
+                  name: 'Switch {#SNMPINDEX} - PoE Budget Near Depletion'
+                  opdata: 'PoE Usage: {ITEM.LASTVALUE1}%'
+                  priority: WARNING
+                  description: 'The calculated amount of PoE usage versus budget exceeds the configured alarm threshold'
+                  manual_close: 'YES'
+                  dependencies:
+                    - name: 'No SNMP data collection'
+                      expression: 'max(/py-cr1-rtr-01.oob.pylonone.net/zabbix[host,snmp,available],{$SNMP.TIMEOUT})=0'
+                    - name: 'Switch {#SNMPINDEX} - PoE Budget Depleted'
+                      expression: 'avg(/Pylon Cisco Switch - IOS LEGACY/switch.poe.utilisation[{#SNMPINDEX}],1m)=100'
+        - uuid: f965e4d65027408e95ba41d8cfff89a4
+          name: 'Optical Sensor Discovery'
+          type: SNMP_AGENT
+          snmp_oid: 'discovery[{#SNMPVALUE},1.3.6.1.2.1.47.1.1.1.1.2]'
+          key: net.if.discovery.sfp
+          delay: 10m
+          filter:
+            conditions:
+              - macro: '{#SNMPVALUE}'
+                value: '(.*)[1-9]\/(.*)Sensor'
+                formulaid: A
+          lifetime: 1h
+          enabled_lifetime_type: DISABLE_NEVER
+          description: CISCO-ENTITY-SENSOR-MIB
+          item_prototypes:
+            - uuid: 912b721096cf469b9f20d86521725573
+              name: '{{#SNMPVALUE}.regsub("([^ ]*)(.*)", \1)} - Bias Current Sensor'
+              type: SNMP_AGENT
+              snmp_oid: '.1.3.6.1.4.1.9.9.91.1.1.1.1.4.{#SNMPINDEX}'
+              key: 'opticalsensor.value.current[{#SNMPINDEX}]'
+              delay: 10s
+              history: 90d
+              value_type: FLOAT
+              discover: NO_DISCOVER
+              units: mA
+              tags:
+                - tag: component
+                  value: current
+                - tag: component
+                  value: optic
+            - uuid: 6f76f7f0954a4d7ca0f10952a4a8e316
+              name: '{{#SNMPVALUE}.regsub("([^ ]*)(.*)", \1)} - Receive Power Sensor'
+              type: SNMP_AGENT
+              snmp_oid: '.1.3.6.1.4.1.9.9.91.1.1.1.1.4.{#SNMPINDEX}'
+              key: 'opticalsensor.value.rxpwr[{#SNMPINDEX}]'
+              delay: 10s
+              history: 90d
+              value_type: FLOAT
+              discover: NO_DISCOVER
+              units: dBm
+              preprocessing:
+                - type: MULTIPLIER
+                  parameters:
+                    - '0.1'
+              tags:
+                - tag: component
+                  value: optic
+                - tag: component
+                  value: power
+            - uuid: 6de9bd7f8fae41518823a5434d68ac5a
+              name: '{{#SNMPVALUE}.regsub("([^ ]*)(.*)", \1)} - Temperature Sensor'
+              type: SNMP_AGENT
+              snmp_oid: '.1.3.6.1.4.1.9.9.91.1.1.1.1.4.{#SNMPINDEX}'
+              key: 'opticalsensor.value.temp[{#SNMPINDEX}]'
+              delay: 10s
+              history: 90d
+              value_type: FLOAT
+              discover: NO_DISCOVER
+              units: °C
+              preprocessing:
+                - type: MULTIPLIER
+                  parameters:
+                    - '0.1'
+              tags:
+                - tag: component
+                  value: optic
+                - tag: component
+                  value: temperature
+            - uuid: 73005410757f4409999b7e62b44bf9a1
+              name: '{{#SNMPVALUE}.regsub("([^ ]*)(.*)", \1)} - Transmit Power Sensor'
+              type: SNMP_AGENT
+              snmp_oid: '.1.3.6.1.4.1.9.9.91.1.1.1.1.4.{#SNMPINDEX}'
+              key: 'opticalsensor.value.txpwr[{#SNMPINDEX}]'
+              delay: 10s
+              history: 90d
+              value_type: FLOAT
+              discover: NO_DISCOVER
+              units: dBm
+              preprocessing:
+                - type: MULTIPLIER
+                  parameters:
+                    - '0.1'
+              tags:
+                - tag: component
+                  value: optic
+                - tag: component
+                  value: power
+            - uuid: 224942e26e844053803ac5db38304fe0
+              name: '{{#SNMPVALUE}.regsub("([^ ]*)(.*)", \1)} - Supply Voltage Sensor'
+              type: SNMP_AGENT
+              snmp_oid: '.1.3.6.1.4.1.9.9.91.1.1.1.1.4.{#SNMPINDEX}'
+              key: 'opticalsensor.value.voltage[{#SNMPINDEX}]'
+              delay: 10s
+              history: 90d
+              value_type: FLOAT
+              discover: NO_DISCOVER
+              units: mV
+              tags:
+                - tag: component
+                  value: optic
+                - tag: component
+                  value: volts
+          overrides:
+            - name: 'Current Sensor'
+              step: '1'
+              stop: STOP
+              filter:
+                conditions:
+                  - macro: '{#SNMPVALUE}'
+                    value: '(.*)Current Sensor'
+                    formulaid: A
+              operations:
+                - operationobject: ITEM_PROTOTYPE
+                  operator: LIKE
+                  value: 'Bias Current Sensor'
+                  discover: DISCOVER
+            - name: 'Receive Power'
+              step: '2'
+              stop: STOP
+              filter:
+                conditions:
+                  - macro: '{#SNMPVALUE}'
+                    value: '(.*)Receive Power Sensor'
+                    formulaid: A
+              operations:
+                - operationobject: ITEM_PROTOTYPE
+                  operator: LIKE
+                  value: 'Receive Power Sensor'
+                  discover: DISCOVER
+            - name: 'Transmit Power'
+              step: '3'
+              stop: STOP
+              filter:
+                conditions:
+                  - macro: '{#SNMPVALUE}'
+                    value: '(.*)Transmit Power Sensor'
+                    formulaid: A
+              operations:
+                - operationobject: ITEM_PROTOTYPE
+                  operator: LIKE
+                  value: 'Transmit Power Sensor'
+                  discover: DISCOVER
+            - name: 'Voltage Sensor'
+              step: '4'
+              stop: STOP
+              filter:
+                conditions:
+                  - macro: '{#SNMPVALUE}'
+                    value: '(.*)Supply Voltage Sensor'
+                    formulaid: A
+              operations:
+                - operationobject: ITEM_PROTOTYPE
+                  operator: LIKE
+                  value: 'Supply Voltage Sensor'
+                  discover: DISCOVER
+            - name: 'Temp Sensor'
+              step: '5'
+              stop: STOP
+              filter:
+                conditions:
+                  - macro: '{#SNMPVALUE}'
+                    value: '(.*)Module Temperature Sensor'
+                    formulaid: A
+              operations:
+                - operationobject: ITEM_PROTOTYPE
+                  operator: LIKE
+                  value: 'Temperature Sensor'
+                  discover: DISCOVER
+      tags:
+        - tag: IsUPS
+          value: 'False'
+      macros:
+        - macro: '{$TEMP_CRIT}'
+          value: '90'
+        - macro: '{$TEMP_CRIT:"CPU"}'
+          value: '95'
+        - macro: '{$TEMP_WARN}'
+          value: '75'
+        - macro: '{$TEMP_WARN:"CPU"}'
+          value: '80'

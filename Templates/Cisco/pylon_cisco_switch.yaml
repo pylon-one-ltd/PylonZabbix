@@ -1,0 +1,756 @@
+zabbix_export:
+  version: '7.0'
+  template_groups:
+    - uuid: bf8846d58f414cd488b718c930236658
+      name: 'Templates/Pylon Templates'
+  templates:
+    - uuid: 9c84a493b0724a5aa7ed6867995e1106
+      template: 'Pylon Cisco Switch - IOS XE'
+      name: 'Pylon Cisco Switch - IOS XE'
+      templates:
+        - name: 'Cisco IOS SNMP'
+      groups:
+        - name: 'Templates/Pylon Templates'
+      items:
+        - uuid: d1bfbd8de126429882a83b2f380674e1
+          name: 'StackPower Port Data'
+          type: SNMP_AGENT
+          snmp_oid: 'walk[1.3.6.1.4.1.9.9.500.1.3.2]'
+          key: cisco.stackpower.port.rawdata
+          history: '0'
+          value_type: TEXT
+          trends: '0'
+          description: 'Raw SNMPWALK data for Stackwise discovery'
+          preprocessing:
+            - type: SNMP_WALK_TO_JSON
+              parameters:
+                - operstatus
+                - 1.3.6.1.4.1.9.9.500.1.3.2.1.2
+                - '0'
+                - linkstatus
+                - 1.3.6.1.4.1.9.9.500.1.3.2.1.5
+                - '0'
+            - type: JAVASCRIPT
+              parameters:
+                - |
+                  var parsed = JSON.parse(value);
+                  for( var index = 0; index < parsed.length; ++index ) {
+                      parsed[index].port = parsed[index]['{#SNMPINDEX}'];
+                  }
+                  return JSON.stringify(parsed);
+          tags:
+            - tag: component
+              value: discovery
+        - uuid: 2901d8b16a474915aee3446bcb28ea52
+          name: 'StackWise Port Data'
+          type: SNMP_AGENT
+          snmp_oid: 'walk[1.3.6.1.4.1.9.9.500.1.2.2]'
+          key: cisco.stackwise.port.rawdata
+          history: '0'
+          value_type: TEXT
+          trends: '0'
+          description: 'Raw SNMPWALK data for Stackwise discovery'
+          preprocessing:
+            - type: SNMP_WALK_TO_JSON
+              parameters:
+                - portstatus
+                - 1.3.6.1.4.1.9.9.500.1.2.2.1.1
+                - '0'
+                - switchid
+                - 1.3.6.1.4.1.9.9.500.1.2.2.1.2
+                - '0'
+          tags:
+            - tag: component
+              value: discovery
+        - uuid: def80f2ef3a54cfea9e0c8a735ed136f
+          name: 'StackWise Switch Data'
+          type: SNMP_AGENT
+          snmp_oid: 'walk[1.3.6.1.4.1.9.9.500.1.2.1]'
+          key: cisco.stackwise.rawdata
+          history: '0'
+          value_type: TEXT
+          trends: '0'
+          description: |
+            Raw SNMPWALK data for Stackwise discovery.
+            Only returns data if there is more than one switch in the stack to prevent alerting on single unit switches
+          preprocessing:
+            - type: SNMP_WALK_TO_JSON
+              parameters:
+                - switchrole
+                - 1.3.6.1.4.1.9.9.500.1.2.1.1.3
+                - '0'
+                - switchnum
+                - 1.3.6.1.4.1.9.9.500.1.2.1.1.1
+                - '0'
+                - switchstate
+                - 1.3.6.1.4.1.9.9.500.1.2.1.1.6
+                - '0'
+            - type: JAVASCRIPT
+              parameters:
+                - |
+                  try {
+                  	var parsed = JSON.parse(value);
+                  	return parsed.length >1 ? value : "[]";
+                  } catch(error) {
+                  	return "[]";
+                  }
+          tags:
+            - tag: component
+              value: discovery
+      discovery_rules:
+        - uuid: 3cb8e28c24704a7abd111d2d795e2f2b
+          name: 'Switch StackWise discovery'
+          type: DEPENDENT
+          key: cisco.stackwise.discovery
+          delay: '0'
+          description: 'Discover switches in a StackWise stack'
+          item_prototypes:
+            - uuid: a6970b42a4a645eb9380d8f954d94ca3
+              name: 'Switch {#SWITCH_NUMBER} StackPower Port 1 Link Status'
+              type: DEPENDENT
+              key: 'cisco.stackpower.port.link[{#SWITCH_NUMBER}, "1"]'
+              delay: '0'
+              description: 'The operational state of the stack power port'
+              valuemap:
+                name: cswStackPowerPortLinkStatus
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$[?(@.port == ''{#SNMPINDEX}.0'')].linkstatus.first()'
+              master_item:
+                key: cisco.stackpower.port.rawdata
+              tags:
+                - tag: component
+                  value: power-stacking
+              trigger_prototypes:
+                - uuid: f076a9f1fd03470d9e528ad63420afdc
+                  expression: 'last(/Pylon Cisco Switch - IOS XE/cisco.stackpower.port.link[{#SWITCH_NUMBER}, "1"])<>1'
+                  name: 'Switch {#SWITCH_NUMBER} StackPower Port 1 is not up'
+                  opdata: 'State: {ITEM.LASTVALUE1}'
+                  priority: AVERAGE
+                  description: 'All switch stack power ports should be up.'
+                  tags:
+                    - tag: component
+                      value: power-stacking
+            - uuid: c01cf299a24e4a0f8fd9cbe9223a9194
+              name: 'Switch {#SWITCH_NUMBER} StackPower Port 2 Link Status'
+              type: DEPENDENT
+              key: 'cisco.stackpower.port.link[{#SWITCH_NUMBER}, "2"]'
+              delay: '0'
+              description: 'The operational state of the stack power port'
+              valuemap:
+                name: cswStackPowerPortLinkStatus
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$[?(@.port == ''{#SNMPINDEX}.1'')].linkstatus.first()'
+              master_item:
+                key: cisco.stackpower.port.rawdata
+              tags:
+                - tag: component
+                  value: power-stacking
+              trigger_prototypes:
+                - uuid: 96427c2c6dc44995b98529b3caa36e6a
+                  expression: 'last(/Pylon Cisco Switch - IOS XE/cisco.stackpower.port.link[{#SWITCH_NUMBER}, "2"])<>1'
+                  name: 'Switch {#SWITCH_NUMBER} StackPower Port 2 is not up'
+                  opdata: 'State: {ITEM.LASTVALUE1}'
+                  priority: AVERAGE
+                  description: 'All switch stack power ports should be up.'
+                  tags:
+                    - tag: component
+                      value: power-stacking
+            - uuid: 2febd5013caf418a918c642673f162e6
+              name: 'Switch {#SWITCH_NUMBER} StackPower Port 1 Operational Status'
+              type: DEPENDENT
+              key: 'cisco.stackpower.port.state[{#SWITCH_NUMBER}, "1"]'
+              delay: '0'
+              description: 'The operational state of the stack power port'
+              valuemap:
+                name: cswStackPowerPortOperStatus
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$[?(@.port == ''{#SNMPINDEX}.0'')].operstatus.first()'
+              master_item:
+                key: cisco.stackpower.port.rawdata
+              tags:
+                - tag: component
+                  value: power-stacking
+              trigger_prototypes:
+                - uuid: fe52f82e39e746eb800650f02e3eccef
+                  expression: 'last(/Pylon Cisco Switch - IOS XE/cisco.stackpower.port.state[{#SWITCH_NUMBER}, "1"])<>1'
+                  name: 'Switch {#SWITCH_NUMBER} StackPower Port 1 is not operational'
+                  opdata: 'State: {ITEM.LASTVALUE1}'
+                  priority: AVERAGE
+                  description: 'All switch stack power ports should be operational.'
+                  tags:
+                    - tag: component
+                      value: power-stacking
+            - uuid: e3c1d741757143b994b7236c59ff4420
+              name: 'Switch {#SWITCH_NUMBER} StackPower Port 2 Operational Status'
+              type: DEPENDENT
+              key: 'cisco.stackpower.port.state[{#SWITCH_NUMBER}, "2"]'
+              delay: '0'
+              description: 'The operational state of the stack power port'
+              valuemap:
+                name: cswStackPowerPortOperStatus
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$[?(@.port == ''{#SNMPINDEX}.1'')].operstatus.first()'
+              master_item:
+                key: cisco.stackpower.port.rawdata
+              tags:
+                - tag: component
+                  value: power-stacking
+              trigger_prototypes:
+                - uuid: 9dec0cd49c554a21a73a3060bc41c34b
+                  expression: 'last(/Pylon Cisco Switch - IOS XE/cisco.stackpower.port.state[{#SWITCH_NUMBER}, "2"])<>1'
+                  name: 'Switch {#SWITCH_NUMBER} StackPower Port 2 is not operational'
+                  opdata: 'State: {ITEM.LASTVALUE1}'
+                  priority: AVERAGE
+                  description: 'All switch stack power ports should be operational.'
+                  tags:
+                    - tag: component
+                      value: power-stacking
+            - uuid: 22c6a3ef2ceb4421bf5d70ca687904a5
+              name: 'Switch {#SWITCH_NUMBER} Port 1 Status'
+              type: DEPENDENT
+              key: 'cisco.stackwise.port.state[{#SWITCH_NUMBER}, "1"]'
+              delay: '0'
+              description: 'The operational state of the stack data port'
+              valuemap:
+                name: cswStackPortOperStatus
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$[?(@.switchid == ''{#SNMPINDEX}'')]'
+                - type: JSONPATH
+                  parameters:
+                    - '$[0].portstatus'
+                  error_handler: CUSTOM_VALUE
+                  error_handler_params: '2'
+              master_item:
+                key: cisco.stackwise.port.rawdata
+              tags:
+                - tag: component
+                  value: stacking
+              trigger_prototypes:
+                - uuid: 812c9a620fc74759b7eacda3f7a1ff8b
+                  expression: 'last(/Pylon Cisco Switch - IOS XE/cisco.stackwise.port.state[{#SWITCH_NUMBER}, "1"])<>1'
+                  name: 'Switch {#SWITCH_NUMBER} StackPort 1 is not up'
+                  opdata: 'State: {ITEM.LASTVALUE1}'
+                  priority: AVERAGE
+                  description: 'All switch stack ports should be up.'
+                  tags:
+                    - tag: component
+                      value: stacking
+            - uuid: 3a868776f4f74daf92d5aa7b8935b0be
+              name: 'Switch {#SWITCH_NUMBER} Port 2 Status'
+              type: DEPENDENT
+              key: 'cisco.stackwise.port.state[{#SWITCH_NUMBER}, "2"]'
+              delay: '0'
+              description: 'The operational state of the stack data port'
+              valuemap:
+                name: cswStackPortOperStatus
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$[?(@.switchid == ''{#SNMPINDEX}'')]'
+                - type: JSONPATH
+                  parameters:
+                    - '$[1].portstatus'
+                  error_handler: CUSTOM_VALUE
+                  error_handler_params: '2'
+              master_item:
+                key: cisco.stackwise.port.rawdata
+              tags:
+                - tag: component
+                  value: stacking
+              trigger_prototypes:
+                - uuid: d1a16e2d411947859768fd7a3260ed17
+                  expression: 'last(/Pylon Cisco Switch - IOS XE/cisco.stackwise.port.state[{#SWITCH_NUMBER}, "2"])<>1'
+                  name: 'Switch {#SWITCH_NUMBER} StackPort 2 is not up'
+                  opdata: 'State: {ITEM.LASTVALUE1}'
+                  priority: AVERAGE
+                  description: 'All switch stack ports should be up.'
+                  tags:
+                    - tag: component
+                      value: stacking
+            - uuid: 4e51e629b4ea41519527acc8898575a4
+              name: 'Switch {#SWITCH_NUMBER} Operational Role'
+              type: DEPENDENT
+              key: 'cisco.stackwise.role[{#SWITCH_NUMBER}]'
+              delay: '0'
+              description: |
+                The operational role of the switch in the stack.
+                Each stack should have one master. All other switches should be marked as member
+              valuemap:
+                name: cswSwitchRole
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$[?(@.switchnum == ''{#SWITCH_NUMBER}'')].switchrole.first()'
+              master_item:
+                key: cisco.stackwise.rawdata
+              tags:
+                - tag: component
+                  value: stacking
+              trigger_prototypes:
+                - uuid: dc648d4adaf742018ab6e36add8b4371
+                  expression: 'last(/Pylon Cisco Switch - IOS XE/cisco.stackwise.role[{#SWITCH_NUMBER}])<>1'
+                  name: 'Switch 1 is not active'
+                  opdata: 'Role: {ITEM.LASTVALUE1}'
+                  discover: NO_DISCOVER
+                  priority: WARNING
+                  description: |
+                    The first switch in the stack should always be the master switch.
+                    Ensure switch 1 has a higher priority than the other switches in the stack.
+                    
+                    This may indicate a failure if configuration is correct
+                  tags:
+                    - tag: component
+                      value: stacking
+                - uuid: df74af31be414f83b8634d11f117a938
+                  expression: 'last(/Pylon Cisco Switch - IOS XE/cisco.stackwise.role[{#SWITCH_NUMBER}])<>4'
+                  name: 'Switch 2 is not standby'
+                  opdata: 'Role: {ITEM.LASTVALUE1}'
+                  discover: NO_DISCOVER
+                  priority: WARNING
+                  description: |
+                    The second switch in the stack should always be the standby switch.
+                    Ensure switch 2 has a higher priority than the other switches in the stack, but less than the master switch.
+                    
+                    This may indicate a failure if configuration is correct
+                  tags:
+                    - tag: component
+                      value: stacking
+                - uuid: 80340945d08d4fcd832e0096a2aaf8dd
+                  expression: 'last(/Pylon Cisco Switch - IOS XE/cisco.stackwise.role[{#SWITCH_NUMBER}])<>2'
+                  name: 'Switch {#SWITCH_NUMBER} is not a member'
+                  opdata: 'Role: {ITEM.LASTVALUE1}'
+                  priority: WARNING
+                  description: |
+                    All switches from 3 and above should be marked as member switches.
+                    If the switch is not a member, this may indicate a configuration issue or a hardware failure
+                  tags:
+                    - tag: component
+                      value: stacking
+            - uuid: 8613076cc9874a40899301e489acc7ff
+              name: 'Switch {#SWITCH_NUMBER} Operational State'
+              type: DEPENDENT
+              key: 'cisco.stackwise.state[{#SWITCH_NUMBER}]'
+              delay: '0'
+              description: |
+                The operational state of the switch in the stack.
+                All members should be marked as ready
+              valuemap:
+                name: cswSwitchState
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$[?(@.switchnum == ''{#SWITCH_NUMBER}'')].switchstate.first()'
+              master_item:
+                key: cisco.stackwise.rawdata
+              tags:
+                - tag: component
+                  value: stacking
+              trigger_prototypes:
+                - uuid: 3ffed931fef942d48f8cebfe0cee398b
+                  expression: 'last(/Pylon Cisco Switch - IOS XE/cisco.stackwise.state[{#SWITCH_NUMBER}])<>4'
+                  name: 'Switch {#SWITCH_NUMBER} is not ready'
+                  opdata: 'State: {ITEM.LASTVALUE1}'
+                  priority: AVERAGE
+                  description: |
+                    All switches should be in the ready state at all times.
+                    If a switch is in another state it may indicate a hardware issue
+                  tags:
+                    - tag: component
+                      value: stacking
+          master_item:
+            key: cisco.stackwise.rawdata
+          lld_macro_paths:
+            - lld_macro: '{#SWITCH_NUMBER}'
+              path: $.switchnum
+          overrides:
+            - name: 'Switch 1 Overrides'
+              step: '1'
+              stop: STOP
+              filter:
+                conditions:
+                  - macro: '{#SWITCH_NUMBER}'
+                    value: '1'
+                    formulaid: A
+              operations:
+                - operationobject: TRIGGER_PROTOTYPE
+                  operator: LIKE
+                  value: 'is not active'
+                  discover: DISCOVER
+                - operationobject: TRIGGER_PROTOTYPE
+                  operator: LIKE
+                  value: 'is not a member'
+                  discover: NO_DISCOVER
+            - name: 'Switch 2 Overrides'
+              step: '2'
+              stop: STOP
+              filter:
+                conditions:
+                  - macro: '{#SWITCH_NUMBER}'
+                    value: '2'
+                    formulaid: A
+              operations:
+                - operationobject: TRIGGER_PROTOTYPE
+                  operator: LIKE
+                  value: 'is not a member'
+                  discover: NO_DISCOVER
+                - operationobject: TRIGGER_PROTOTYPE
+                  operator: LIKE
+                  value: 'is not standby'
+                  discover: DISCOVER
+        - uuid: 5eceb8895e5e48caba857b5efa7aa54a
+          name: 'Switch PoE Discovery'
+          type: SNMP_AGENT
+          snmp_oid: 'discovery[{#SNMPVALUE},1.3.6.1.2.1.105.1.3.1.1.3]'
+          key: net.discovery.poe
+          delay: 1h
+          lifetime: 1d
+          enabled_lifetime_type: DISABLE_NEVER
+          description: POWER-ETHERNET-MIB
+          item_prototypes:
+            - uuid: 3d62265c0c844256a015465de9e2669c
+              name: 'Switch {#SNMPINDEX} - PoE Power Budget'
+              type: SNMP_AGENT
+              snmp_oid: '.1.3.6.1.2.1.105.1.3.1.1.2.{#SNMPINDEX}'
+              key: 'switch.poe.budget[{#SNMPINDEX}]'
+              delay: 5m
+              history: 90d
+              units: w
+              tags:
+                - tag: component
+                  value: power
+            - uuid: cc08ef81a53147f5b5a4467c472429a1
+              name: 'Switch {#SNMPINDEX} - PoE Power Usage'
+              type: SNMP_AGENT
+              snmp_oid: '.1.3.6.1.2.1.105.1.3.1.1.4.{#SNMPINDEX}'
+              key: 'switch.poe.usage[{#SNMPINDEX}]'
+              delay: 5m
+              history: 90d
+              units: w
+              tags:
+                - tag: component
+                  value: power
+            - uuid: 23f064745db846c4b220b526ed8b09c7
+              name: 'Switch {#SNMPINDEX} - PoE Power Utilisation'
+              type: CALCULATED
+              key: 'switch.poe.utilisation[{#SNMPINDEX}]'
+              history: 90d
+              units: '%'
+              params: 'last(//switch.poe.usage[{#SNMPINDEX}])/last(//switch.poe.budget[{#SNMPINDEX}])*100'
+              tags:
+                - tag: component
+                  value: power
+              trigger_prototypes:
+                - uuid: b400dbf005974c93a9833f6bf2fd0291
+                  expression: 'avg(/Pylon Cisco Switch - IOS XE/switch.poe.utilisation[{#SNMPINDEX}],1m)>={$POE_WARN_PERCENT}'
+                  name: 'Switch {#SNMPINDEX} - High PoE Utilisation'
+                  opdata: 'PoE Usage: {ITEM.LASTVALUE1}%'
+                  priority: WARNING
+                  description: 'The calculated amount of PoE usage versus budget exceeds the configured warning threshold'
+                  manual_close: 'YES'
+                  dependencies:
+                    - name: 'No SNMP data collection'
+                      expression: 'max(/py-cr1-rtr-01.oob.pylonone.net/zabbix[host,snmp,available],{$SNMP.TIMEOUT})=0'
+                    - name: 'Switch {#SNMPINDEX} - PoE Budget Near Depletion'
+                      expression: 'avg(/Pylon Cisco Switch - IOS XE/switch.poe.utilisation[{#SNMPINDEX}],1m)>={$POE_ALERT_PERCENT}'
+                - uuid: c14bacbc91594a9ab3d364e9025e101d
+                  expression: 'avg(/Pylon Cisco Switch - IOS XE/switch.poe.utilisation[{#SNMPINDEX}],1m)=100'
+                  name: 'Switch {#SNMPINDEX} - PoE Budget Depleted'
+                  opdata: 'PoE Usage: {ITEM.LASTVALUE1}%'
+                  priority: AVERAGE
+                  description: 'The calculated amount of PoE usage versus budget exceeds the configured alarm threshold'
+                  manual_close: 'YES'
+                  dependencies:
+                    - name: 'No SNMP data collection'
+                      expression: 'max(/py-cr1-rtr-01.oob.pylonone.net/zabbix[host,snmp,available],{$SNMP.TIMEOUT})=0'
+                - uuid: b7c3e901206f4d7c9f83599de5402074
+                  expression: 'avg(/Pylon Cisco Switch - IOS XE/switch.poe.utilisation[{#SNMPINDEX}],1m)>={$POE_ALERT_PERCENT}'
+                  name: 'Switch {#SNMPINDEX} - PoE Budget Near Depletion'
+                  opdata: 'PoE Usage: {ITEM.LASTVALUE1}%'
+                  priority: AVERAGE
+                  description: 'The calculated amount of PoE usage versus budget exceeds the configured alarm threshold'
+                  manual_close: 'YES'
+                  dependencies:
+                    - name: 'No SNMP data collection'
+                      expression: 'max(/py-cr1-rtr-01.oob.pylonone.net/zabbix[host,snmp,available],{$SNMP.TIMEOUT})=0'
+                    - name: 'Switch {#SNMPINDEX} - PoE Budget Depleted'
+                      expression: 'avg(/Pylon Cisco Switch - IOS XE/switch.poe.utilisation[{#SNMPINDEX}],1m)=100'
+        - uuid: 014db63866044b428e98ed59511e2230
+          name: 'Optical Sensor Discovery'
+          type: SNMP_AGENT
+          snmp_oid: 'discovery[{#SNMPVALUE},1.3.6.1.2.1.47.1.1.1.1.2]'
+          key: net.if.discovery.sfp
+          delay: 10m
+          filter:
+            evaltype: AND
+            conditions:
+              - macro: '{#SNMPVALUE}'
+                value: '(.*)[1-9]\/(.*)Sensor'
+                formulaid: A
+          lifetime: 1h
+          enabled_lifetime_type: DISABLE_NEVER
+          description: CISCO-ENTITY-SENSOR-MIB
+          item_prototypes:
+            - uuid: bafb4490c2f8465098f75bdc4558618d
+              name: '{{#SNMPVALUE}.regsub("([^ ]*)(.*)", \1)} - Bias Current Sensor'
+              type: SNMP_AGENT
+              snmp_oid: '.1.3.6.1.4.1.9.9.91.1.1.1.1.4.{#SNMPINDEX}'
+              key: 'opticalsensor.value.current[{#SNMPINDEX}]'
+              delay: 10s
+              history: 90d
+              value_type: FLOAT
+              discover: NO_DISCOVER
+              units: mA
+              tags:
+                - tag: component
+                  value: current
+                - tag: component
+                  value: optic
+            - uuid: e76dc9c8e2f34ac5b4f22daadf9fa4de
+              name: '{{#SNMPVALUE}.regsub("([^ ]*)(.*)", \1)} - Receive Power Sensor'
+              type: SNMP_AGENT
+              snmp_oid: '.1.3.6.1.4.1.9.9.91.1.1.1.1.4.{#SNMPINDEX}'
+              key: 'opticalsensor.value.rxpwr[{#SNMPINDEX}]'
+              delay: 10s
+              history: 90d
+              value_type: FLOAT
+              discover: NO_DISCOVER
+              units: dBm
+              preprocessing:
+                - type: MULTIPLIER
+                  parameters:
+                    - '0.1'
+              tags:
+                - tag: component
+                  value: optic
+                - tag: component
+                  value: power
+            - uuid: d1e0332a8e00424285b043d92d86dbf6
+              name: '{{#SNMPVALUE}.regsub("([^ ]*)(.*)", \1)} - Temperature Sensor'
+              type: SNMP_AGENT
+              snmp_oid: '.1.3.6.1.4.1.9.9.91.1.1.1.1.4.{#SNMPINDEX}'
+              key: 'opticalsensor.value.temp[{#SNMPINDEX}]'
+              delay: 10s
+              history: 90d
+              value_type: FLOAT
+              discover: NO_DISCOVER
+              units: °C
+              tags:
+                - tag: component
+                  value: optic
+                - tag: component
+                  value: temperature
+            - uuid: c33780a897194e2aba12f6715a81f4a8
+              name: '{{#SNMPVALUE}.regsub("([^ ]*)(.*)", \1)} - Transmit Power Sensor'
+              type: SNMP_AGENT
+              snmp_oid: '.1.3.6.1.4.1.9.9.91.1.1.1.1.4.{#SNMPINDEX}'
+              key: 'opticalsensor.value.txpwr[{#SNMPINDEX}]'
+              delay: 10s
+              history: 90d
+              value_type: FLOAT
+              discover: NO_DISCOVER
+              units: dBm
+              preprocessing:
+                - type: MULTIPLIER
+                  parameters:
+                    - '0.1'
+              tags:
+                - tag: component
+                  value: optic
+                - tag: component
+                  value: power
+            - uuid: 3c4c536b1eca4f42951c15b30b8d7869
+              name: '{{#SNMPVALUE}.regsub("([^ ]*)(.*)", \1)} - Supply Voltage Sensor'
+              type: SNMP_AGENT
+              snmp_oid: '.1.3.6.1.4.1.9.9.91.1.1.1.1.4.{#SNMPINDEX}'
+              key: 'opticalsensor.value.voltage[{#SNMPINDEX}]'
+              delay: 10s
+              history: 90d
+              value_type: FLOAT
+              discover: NO_DISCOVER
+              units: mV
+              tags:
+                - tag: component
+                  value: optic
+                - tag: component
+                  value: volts
+          overrides:
+            - name: 'Current Sensor'
+              step: '1'
+              stop: STOP
+              filter:
+                conditions:
+                  - macro: '{#SNMPVALUE}'
+                    value: '(.*)Current Sensor'
+                    formulaid: A
+              operations:
+                - operationobject: ITEM_PROTOTYPE
+                  operator: LIKE
+                  value: 'Bias Current Sensor'
+                  discover: DISCOVER
+            - name: 'Receive Power'
+              step: '2'
+              stop: STOP
+              filter:
+                conditions:
+                  - macro: '{#SNMPVALUE}'
+                    value: '(.*)Receive Power Sensor'
+                    formulaid: A
+              operations:
+                - operationobject: ITEM_PROTOTYPE
+                  operator: LIKE
+                  value: 'Receive Power Sensor'
+                  discover: DISCOVER
+            - name: 'Transmit Power'
+              step: '3'
+              stop: STOP
+              filter:
+                conditions:
+                  - macro: '{#SNMPVALUE}'
+                    value: '(.*)Transmit Power Sensor'
+                    formulaid: A
+              operations:
+                - operationobject: ITEM_PROTOTYPE
+                  operator: LIKE
+                  value: 'Transmit Power Sensor'
+                  discover: DISCOVER
+            - name: 'Voltage Sensor'
+              step: '4'
+              stop: STOP
+              filter:
+                conditions:
+                  - macro: '{#SNMPVALUE}'
+                    value: '(.*)Supply Voltage Sensor'
+                    formulaid: A
+              operations:
+                - operationobject: ITEM_PROTOTYPE
+                  operator: LIKE
+                  value: 'Supply Voltage Sensor'
+                  discover: DISCOVER
+            - name: 'Temp Sensor'
+              step: '5'
+              stop: STOP
+              filter:
+                conditions:
+                  - macro: '{#SNMPVALUE}'
+                    value: '(.*)Module Temperature Sensor'
+                    formulaid: A
+              operations:
+                - operationobject: ITEM_PROTOTYPE
+                  operator: LIKE
+                  value: 'Temperature Sensor'
+                  discover: DISCOVER
+      tags:
+        - tag: IsUPS
+          value: 'False'
+      macros:
+        - macro: '{$POE_ALERT_PERCENT}'
+          value: '90'
+        - macro: '{$POE_WARN_PERCENT}'
+          value: '85'
+        - macro: '{$TEMP_CRIT}'
+          value: '80'
+        - macro: '{$TEMP_CRIT:"CPU"}'
+          value: '75'
+        - macro: '{$TEMP_WARN}'
+          value: '70'
+        - macro: '{$TEMP_WARN:"CPU"}'
+          value: '70'
+      valuemaps:
+        - uuid: b8b99b5bde1d4d0e854f1abc9f7f00b2
+          name: cswStackPortOperStatus
+          mappings:
+            - value: '1'
+              newvalue: up
+            - value: '2'
+              newvalue: down
+            - value: '3'
+              newvalue: forcedDown
+        - uuid: 9cc2712b87c84a8a863f51a49007e389
+          name: cswStackPowerPortLinkStatus
+          mappings:
+            - value: '1'
+              newvalue: up
+            - value: '2'
+              newvalue: down
+        - uuid: b4ae443397d74e9d8d68c01557c27946
+          name: cswStackPowerPortOperStatus
+          mappings:
+            - value: '1'
+              newvalue: enabled
+            - value: '2'
+              newvalue: disabled
+        - uuid: 73f1654a265b4d3b8811f406b5855b19
+          name: cswSwitchRole
+          mappings:
+            - value: '1'
+              newvalue: active
+            - value: '2'
+              newvalue: member
+            - value: '3'
+              newvalue: notMember
+            - value: '4'
+              newvalue: standby
+        - uuid: c80da2adb36b4949ac9218147b26f082
+          name: cswSwitchState
+          mappings:
+            - value: '1'
+              newvalue: waiting
+            - value: '2'
+              newvalue: progressing
+            - value: '3'
+              newvalue: added
+            - value: '4'
+              newvalue: ready
+            - value: '5'
+              newvalue: sdmMismatch
+            - value: '6'
+              newvalue: verMismatch
+            - value: '7'
+              newvalue: featureMismatch
+            - value: '8'
+              newvalue: newMasterInit
+            - value: '9'
+              newvalue: provisioned
+            - value: '10'
+              newvalue: invalid
+        - uuid: 2a21f719775e4e609020a3c8ed11b514
+          name: SensorDataType
+          mappings:
+            - value: '1'
+              newvalue: other
+            - value: '2'
+              newvalue: unknown
+            - value: '3'
+              newvalue: voltsAC
+            - value: '4'
+              newvalue: voltsDC
+            - value: '5'
+              newvalue: amperes
+            - value: '6'
+              newvalue: watts
+            - value: '7'
+              newvalue: hertz
+            - value: '8'
+              newvalue: celsius
+            - value: '9'
+              newvalue: percentRH
+            - value: '10'
+              newvalue: rpm
+            - value: '11'
+              newvalue: cmm
+            - value: '12'
+              newvalue: truthvalue
+            - value: '13'
+              newvalue: specialEnum
+            - value: '14'
+              newvalue: dBm

@@ -1,0 +1,96 @@
+zabbix_export:
+  version: '7.0'
+  template_groups:
+    - uuid: bf8846d58f414cd488b718c930236658
+      name: 'Templates/Pylon Templates'
+  templates:
+    - uuid: 95da9df360ee4a58b6933c4d9b83ea59
+      template: 'Pylon Cisco ASR BGP'
+      name: 'Pylon Cisco ASR BGP'
+      templates:
+        - name: 'Cisco ASR'
+        - name: 'Cisco BGP SNMP'
+        - name: 'Cisco IOS SNMP'
+      groups:
+        - name: 'Templates/Pylon Templates'
+      items:
+        - uuid: a41df7f287e140858c5865ee0bfe639d
+          name: 'ICMP ping'
+          type: SIMPLE
+          key: icmpping
+          history: 1w
+          tags:
+            - tag: component
+              value: health
+            - tag: component
+              value: network
+        - uuid: 0064633d933c48ea9e53da41175cd84b
+          name: 'ICMP loss'
+          type: SIMPLE
+          key: icmppingloss
+          history: 1w
+          value_type: FLOAT
+          units: '%'
+          tags:
+            - tag: component
+              value: health
+            - tag: component
+              value: network
+          triggers:
+            - uuid: 027c62ce1cf64b9b83eb05eec6cae9ad
+              expression: 'min(/Pylon Cisco ASR BGP/icmppingloss,5m)>{$ICMP_LOSS_WARN} and min(/Pylon Cisco ASR BGP/icmppingloss,5m)<100'
+              name: 'High ICMP ping loss'
+              opdata: 'Loss: {ITEM.LASTVALUE1}'
+              priority: WARNING
+              dependencies:
+                - name: 'Unavailable by ICMP ping'
+                  expression: 'max(/Pylon Cisco ASR BGP/icmpping,#3)=0'
+              tags:
+                - tag: scope
+                  value: availability
+                - tag: scope
+                  value: performance
+        - uuid: 45a1e2354bf04114a842de6170d0f8fc
+          name: 'ICMP response time'
+          type: SIMPLE
+          key: icmppingsec
+          history: 1w
+          value_type: FLOAT
+          units: s
+          tags:
+            - tag: component
+              value: health
+            - tag: component
+              value: network
+          triggers:
+            - uuid: 0b76c0f137e6453d9d5152eaa01f2b67
+              expression: 'avg(/Pylon Cisco ASR BGP/icmppingsec,5m)>{$ICMP_RESPONSE_TIME_WARN}'
+              name: 'High ICMP ping response time'
+              opdata: 'Value: {ITEM.LASTVALUE1}'
+              priority: WARNING
+              dependencies:
+                - name: 'High ICMP ping loss'
+                  expression: 'min(/Pylon Cisco ASR BGP/icmppingloss,5m)>{$ICMP_LOSS_WARN} and min(/Pylon Cisco ASR BGP/icmppingloss,5m)<100'
+                - name: 'Unavailable by ICMP ping'
+                  expression: 'max(/Pylon Cisco ASR BGP/icmpping,#3)=0'
+              tags:
+                - tag: scope
+                  value: availability
+                - tag: scope
+                  value: performance
+      tags:
+        - tag: IsUPS
+          value: 'False'
+      macros:
+        - macro: '{$PEER_LOW_TIME}'
+          value: '86400'
+          description: 'time in sec alarm for uptime bgp session'
+  triggers:
+    - uuid: f6d04f919e2745e8bcfdb8b792de4802
+      expression: 'max(/Pylon Cisco ASR BGP/icmpping,#3)=0'
+      name: 'Unavailable by ICMP ping'
+      priority: HIGH
+      description: 'Last three attempts returned timeout.  Please check device connectivity.'
+      tags:
+        - tag: scope
+          value: availability

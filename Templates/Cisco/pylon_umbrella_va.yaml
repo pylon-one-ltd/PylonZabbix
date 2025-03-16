@@ -1,0 +1,230 @@
+zabbix_export:
+  version: '7.0'
+  template_groups:
+    - uuid: bf8846d58f414cd488b718c930236658
+      name: 'Templates/Pylon Templates'
+  templates:
+    - uuid: 03a791965f4b452080d3304ae8fd4e11
+      template: 'Pylon Umbrella VA'
+      name: 'Pylon Umbrella VA'
+      templates:
+        - name: 'Generic SNMP'
+      groups:
+        - name: 'Templates/Pylon Templates'
+      items:
+        - uuid: 7cfd0621e1194b14952469aed30242dc
+          name: 'Linux: Load average (1m avg)'
+          type: SNMP_AGENT
+          snmp_oid: .1.3.6.1.4.1.2021.10.1.3.1
+          key: 'system.cpu.load[all,avg1]'
+          history: 90d
+          value_type: FLOAT
+          tags:
+            - tag: component
+              value: cpu
+        - uuid: ba0e81591ac84f329986ef71475bdb1f
+          name: 'Linux: Load average (5m avg)'
+          type: SNMP_AGENT
+          snmp_oid: .1.3.6.1.4.1.2021.10.1.3.2
+          key: 'system.cpu.load[all,avg5]'
+          delay: 5m
+          history: 90d
+          value_type: FLOAT
+          tags:
+            - tag: component
+              value: cpu
+        - uuid: c302dc87adb9497e868d0a4b5596bc69
+          name: 'Linux: Load average (15m avg)'
+          type: SNMP_AGENT
+          snmp_oid: .1.3.6.1.4.1.2021.10.1.3.3
+          key: 'system.cpu.load[all,avg15]'
+          delay: 5m
+          history: 90d
+          value_type: FLOAT
+          tags:
+            - tag: component
+              value: cpu
+        - uuid: 7fcb9dbe340f4b64b86e06d1def75bd6
+          name: 'Linux: CPU idle time'
+          type: SNMP_AGENT
+          snmp_oid: .1.3.6.1.4.1.2021.11.11.0
+          key: 'system.cpu.util[,idle]'
+          history: 90d
+          tags:
+            - tag: component
+              value: cpu
+        - uuid: 324b926cef344c52b47a99b0bf4eaaba
+          name: 'Linux: CPU system time'
+          type: SNMP_AGENT
+          snmp_oid: .1.3.6.1.4.1.2021.11.10.0
+          key: 'system.cpu.util[,system]'
+          history: 90d
+          tags:
+            - tag: component
+              value: cpu
+        - uuid: 8296a2e1eaf54e4a92cc755541b71008
+          name: 'Linux: CPU user time'
+          type: SNMP_AGENT
+          snmp_oid: .1.3.6.1.4.1.2021.11.9.0
+          key: 'system.cpu.util[,user]'
+          history: 90d
+          tags:
+            - tag: component
+              value: cpu
+        - uuid: ad4dfd0ac1da49bd9cd8d60cc21f537d
+          name: 'Umbrella: Disk storage utilization in %'
+          type: SNMP_AGENT
+          snmp_oid: .1.3.6.1.4.1.8072.1.3.2.4.1.2.9.100.105.115.107.117.115.97.103.101.1
+          key: system.storage.util
+          delay: 5m
+          history: 90d
+          tags:
+            - tag: component
+              value: storage
+        - uuid: 14a7d9b4dd8c4dd182c6e75ceea801bf
+          name: 'Linux: Free swap space'
+          type: SNMP_AGENT
+          snmp_oid: .1.3.6.1.4.1.2021.4.4.0
+          key: 'system.swap.size[,free]'
+          delay: 5m
+          history: 90d
+          units: B
+          tags:
+            - tag: component
+              value: memory
+            - tag: component
+              value: storage
+        - uuid: 0c840b181bce416d8580ac4de8d56599
+          name: 'Linux: Total swap space'
+          type: SNMP_AGENT
+          snmp_oid: .1.3.6.1.4.1.2021.4.3.0
+          key: 'system.swap.size[,total]'
+          delay: 5m
+          history: 90d
+          units: B
+          preprocessing:
+            - type: DISCARD_UNCHANGED_HEARTBEAT
+              parameters:
+                - '600'
+          tags:
+            - tag: component
+              value: memory
+            - tag: component
+              value: storage
+        - uuid: 493c997e56554be69d5eced351dd4eb8
+          name: 'Queries per second (5m avg)'
+          type: SNMP_AGENT
+          snmp_oid: .1.3.6.1.4.1.8072.1.3.2.4.1.2.4.113.112.115.53.1
+          key: 'umbrella.qps[,5m]'
+          history: 90d
+          tags:
+            - tag: application
+              value: dns
+        - uuid: 9d6e47c2730349538dfc02290d00bfe5
+          name: 'Queries per second (15m avg)'
+          type: SNMP_AGENT
+          snmp_oid: .1.3.6.1.4.1.8072.1.3.2.4.1.2.5.113.112.115.49.53.1
+          key: 'umbrella.qps[,15m]'
+          delay: 5m
+          history: 90d
+          tags:
+            - tag: application
+              value: dns
+        - uuid: 7cc0b18dfd62492fa9a9743b0d8717bb
+          name: 'Umbrella: AD Connector Status'
+          type: SNMP_AGENT
+          snmp_oid: .1.3.6.1.4.1.8072.1.3.2.4.1.2.2.97.100.1
+          key: umbrella.status.ad
+          history: 90d
+          value_type: TEXT
+          trends: '0'
+          preprocessing:
+            - type: DISCARD_UNCHANGED_HEARTBEAT
+              parameters:
+                - '3600'
+            - type: STR_REPLACE
+              parameters:
+                - 'ad: AD Connector: '
+                - ''
+          tags:
+            - tag: application
+              value: dns
+        - uuid: 60e1640901934a3ca2ef48db9efeef5a
+          name: 'Umbrella: Cloud Status'
+          type: SNMP_AGENT
+          snmp_oid: .1.3.6.1.4.1.8072.1.3.2.4.1.2.5.99.108.111.117.100.1
+          key: umbrella.status.cloud
+          history: 90d
+          value_type: TEXT
+          trends: '0'
+          preprocessing:
+            - type: DISCARD_UNCHANGED_HEARTBEAT
+              parameters:
+                - '3600'
+            - type: STR_REPLACE
+              parameters:
+                - 'cloud: Umbrella Cloud:'
+                - ''
+          tags:
+            - tag: application
+              value: dns
+        - uuid: 06521460e9d144219cab87be759e0d94
+          name: 'Umbrella: Local DNS Status'
+          type: SNMP_AGENT
+          snmp_oid: .1.3.6.1.4.1.8072.1.3.2.4.1.2.8.108.111.99.97.108.100.110.115.1
+          key: umbrella.status.localdns
+          history: 90d
+          value_type: TEXT
+          trends: '0'
+          preprocessing:
+            - type: DISCARD_UNCHANGED_HEARTBEAT
+              parameters:
+                - '3600'
+            - type: STR_REPLACE
+              parameters:
+                - 'localdns: Local DNS Servers: '
+                - ''
+          tags:
+            - tag: application
+              value: dns
+        - uuid: c931f670b0334d179b894e275224752f
+          name: 'Umbrella: Resolver Status'
+          type: SNMP_AGENT
+          snmp_oid: .1.3.6.1.4.1.8072.1.3.2.4.1.2.3.100.110.115.1
+          key: umbrella.status.resolver
+          history: 90d
+          value_type: TEXT
+          trends: '0'
+          preprocessing:
+            - type: DISCARD_UNCHANGED_HEARTBEAT
+              parameters:
+                - '3600'
+            - type: STR_REPLACE
+              parameters:
+                - 'dns: Umbrella DNS Servers: '
+                - ''
+          tags:
+            - tag: application
+              value: dns
+        - uuid: ca9fd494691b449dbdcae2e1f91b9f87
+          name: 'Umbrella: VA Status'
+          type: SNMP_AGENT
+          snmp_oid: .1.3.6.1.4.1.8072.1.3.2.4.1.2.7.116.104.105.115.100.110.115.1
+          key: umbrella.status.va
+          history: 90d
+          value_type: TEXT
+          trends: '0'
+          preprocessing:
+            - type: DISCARD_UNCHANGED_HEARTBEAT
+              parameters:
+                - '3600'
+            - type: STR_REPLACE
+              parameters:
+                - 'thisdns: This DNS Server:'
+                - ''
+          tags:
+            - tag: application
+              value: dns
+      tags:
+        - tag: IsUPS
+          value: 'False'

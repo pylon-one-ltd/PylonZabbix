@@ -1,0 +1,27 @@
+zabbix_export:
+  version: '7.0'
+  template_groups:
+    - uuid: bf8846d58f414cd488b718c930236658
+      name: 'Templates/Pylon Templates'
+  templates:
+    - uuid: 183ab05cfd8b43beab77cf851f8dd0d1
+      template: 'Pylon Cisco Router'
+      name: 'Pylon Cisco Router'
+      templates:
+        - name: 'Cisco IOS SNMP'
+      groups:
+        - name: 'Templates/Pylon Templates'
+      items:
+        - uuid: 33db4833e6fd4be9814219e6904e2028
+          name: 'NAT Translations'
+          type: SNMP_AGENT
+          snmp_oid: .1.3.6.1.2.1.90.1.2.1.1.3.5.99.105.115.99.111.7.99.117.115.116.111.109.49
+          key: tcl.nattranslations
+          delay: 30s
+          history: 90d
+          tags:
+            - tag: component
+              value: nat
+      tags:
+        - tag: IsUPS
+          value: 'False'

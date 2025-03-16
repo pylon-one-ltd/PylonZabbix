@@ -1,0 +1,911 @@
+zabbix_export:
+  version: '7.0'
+  template_groups:
+    - uuid: bf8846d58f414cd488b718c930236658
+      name: 'Templates/Pylon Templates'
+  templates:
+    - uuid: 5360d204921a41eaa87ae027c31d88e1
+      template: 'Pylon Eaton PDU'
+      name: 'Pylon Eaton PDU'
+      templates:
+        - name: 'ICMP Ping'
+      groups:
+        - name: 'Templates/Pylon Templates'
+      items:
+        - uuid: 22121c1aa1964e9ea640820e19a175a4
+          name: 'SNMP traps (fallback)'
+          type: SNMP_TRAP
+          key: snmptrap.fallback
+          delay: '0'
+          history: 2w
+          value_type: LOG
+          trends: '0'
+          description: 'The item is used to collect all SNMP traps unmatched by other snmptrap items'
+          logtimefmt: 'hh:mm:sszyyyy/MM/dd'
+          tags:
+            - tag: component
+              value: network
+        - uuid: 5593c7dde564417d99c55bca1cb38c4a
+          name: 'System contact details'
+          type: SNMP_AGENT
+          snmp_oid: 1.3.6.1.2.1.1.4.0
+          key: 'system.contact[sysContact.0]'
+          delay: 15m
+          history: 2w
+          value_type: CHAR
+          trends: '0'
+          description: |
+            MIB: SNMPv2-MIB
+            The textual identification of the contact person for this managed node, together with information on how to contact this person.  If no contact information is known, the value is the zero-length string.
+          inventory_link: CONTACT
+          preprocessing:
+            - type: DISCARD_UNCHANGED_HEARTBEAT
+              parameters:
+                - 12h
+          tags:
+            - tag: component
+              value: system
+        - uuid: 521e908ada7c4dbb867bdda8247b61df
+          name: 'System description'
+          type: SNMP_AGENT
+          snmp_oid: 1.3.6.1.2.1.1.1.0
+          key: 'system.descr[sysDescr.0]'
+          delay: 15m
+          history: 2w
+          value_type: CHAR
+          trends: '0'
+          description: |
+            MIB: SNMPv2-MIB
+            A textual description of the entity. This value should
+            include the full name and version identification of the system's hardware type, software operating-system, and
+            networking software.
+          preprocessing:
+            - type: DISCARD_UNCHANGED_HEARTBEAT
+              parameters:
+                - 12h
+          tags:
+            - tag: component
+              value: system
+        - uuid: ab92a46fe0804b3fba403ab837ceacf2
+          name: 'System location'
+          type: SNMP_AGENT
+          snmp_oid: 1.3.6.1.2.1.1.6.0
+          key: 'system.location[sysLocation.0]'
+          delay: 15m
+          history: 2w
+          value_type: CHAR
+          trends: '0'
+          description: |
+            MIB: SNMPv2-MIB
+            The physical location of this node (e.g., `telephone closet, 3rd floor').  If the location is unknown, the value is the zero-length string.
+          inventory_link: LOCATION
+          preprocessing:
+            - type: DISCARD_UNCHANGED_HEARTBEAT
+              parameters:
+                - 12h
+          tags:
+            - tag: component
+              value: system
+        - uuid: 42f3c52035e34df68823e991428d5c04
+          name: 'System name'
+          type: SNMP_AGENT
+          snmp_oid: 1.3.6.1.2.1.1.5.0
+          key: system.name
+          delay: 15m
+          history: 2w
+          value_type: CHAR
+          trends: '0'
+          description: |
+            MIB: SNMPv2-MIB
+            An administratively-assigned name for this managed node.By convention, this is the node's fully-qualified domain name.  If the name is unknown, the value is the zero-length string.
+          inventory_link: NAME
+          preprocessing:
+            - type: DISCARD_UNCHANGED_HEARTBEAT
+              parameters:
+                - 12h
+          tags:
+            - tag: component
+              value: system
+          triggers:
+            - uuid: b4da2ebf373d4837835934b7f850b5e7
+              expression: 'last(/Pylon Eaton PDU/system.name,#1)<>last(/Pylon Eaton PDU/system.name,#2) and length(last(/Pylon Eaton PDU/system.name))>0'
+              name: 'System name has changed'
+              event_name: 'System name has changed (new name: {ITEM.VALUE})'
+              priority: INFO
+              description: 'System name has changed. Ack to close.'
+              manual_close: 'YES'
+              tags:
+                - tag: scope
+                  value: notice
+                - tag: scope
+                  value: security
+        - uuid: 6b4cc9715a82408a9b609c8ae47cde53
+          name: 'Uptime (network)'
+          type: SNMP_AGENT
+          snmp_oid: 1.3.6.1.2.1.1.3.0
+          key: 'system.net.uptime[sysUpTime.0]'
+          delay: 30s
+          history: 2w
+          trends: 0d
+          units: uptime
+          description: |
+            MIB: SNMPv2-MIB
+            The time (in hundredths of a second) since the network management portion of the system was last re-initialized.
+          preprocessing:
+            - type: MULTIPLIER
+              parameters:
+                - '0.01'
+          tags:
+            - tag: component
+              value: system
+          triggers:
+            - uuid: 565cee6e54e64747ae9f1fd589936833
+              expression: 'last(/Pylon Eaton PDU/system.net.uptime[sysUpTime.0])>0 and last(/Pylon Eaton PDU/system.net.uptime[sysUpTime.0])<10m'
+              name: 'Host has been restarted'
+              event_name: '{HOST.NAME} has been restarted (uptime < 10m)'
+              opdata: '{HOST.NAME} has been restarted (uptime < 10m)'
+              priority: WARNING
+              description: 'Uptime is less than 10 minutes.'
+              dependencies:
+                - name: 'No SNMP data collection'
+                  expression: 'max(/Pylon Eaton PDU/zabbix[host,snmp,available],{$SNMP.TIMEOUT})=0'
+              tags:
+                - tag: scope
+                  value: notice
+        - uuid: 08f4c4250c144c52922fbafaf0303219
+          name: 'System object ID'
+          type: SNMP_AGENT
+          snmp_oid: 1.3.6.1.2.1.1.2.0
+          key: 'system.objectid[sysObjectID.0]'
+          delay: 15m
+          history: 2w
+          value_type: CHAR
+          trends: '0'
+          description: |
+            MIB: SNMPv2-MIB
+            The vendor's authoritative identification of the network management subsystem contained in the entity.  This value is allocated within the SMI enterprises subtree (1.3.6.1.4.1) and provides an easy and unambiguous means for determining`what kind of box' is being managed.  For example, if vendor`Flintstones, Inc.' was assigned the subtree1.3.6.1.4.1.4242, it could assign the identifier 1.3.6.1.4.1.4242.1.1 to its `Fred Router'.
+          preprocessing:
+            - type: DISCARD_UNCHANGED_HEARTBEAT
+              parameters:
+                - 12h
+          tags:
+            - tag: component
+              value: system
+        - uuid: 0ef457c738fc4a9e9f284424cb4d2ec2
+          name: 'Walk - ePDU Information'
+          type: SNMP_AGENT
+          snmp_oid: 'walk[.1.3.6.1.4.1.534.6.6.7.1]'
+          key: walk.epdu.info
+          delay: 1h
+          history: '0'
+          value_type: TEXT
+          trends: '0'
+        - uuid: a27d507a83da4fe89fd70998ec126a4e
+          name: 'Walk - ePDU Inputs'
+          type: SNMP_AGENT
+          snmp_oid: 'walk[.1.3.6.1.4.1.534.6.6.7.3]'
+          key: walk.epdu.inputs
+          history: '0'
+          value_type: TEXT
+          trends: '0'
+        - uuid: 68cf4478ecd34dd9a54ce40dcd96edee
+          name: 'Walk - ePDU Environmental Probes'
+          type: SNMP_AGENT
+          snmp_oid: 'walk[.1.3.6.1.4.1.534.6.8.1]'
+          key: walk.epdu.probes
+          delay: 30s
+          history: '0'
+          value_type: TEXT
+          trends: '0'
+          preprocessing:
+            - type: STR_REPLACE
+              parameters:
+                - 'Wrong Type (should be Counter32): '
+                - ''
+        - uuid: 0f1a3465bbea44d1a607692cd73edebe
+          name: 'SNMP agent availability'
+          type: INTERNAL
+          key: 'zabbix[host,snmp,available]'
+          history: 7d
+          description: |
+            Availability of SNMP checks on the host. The value of this item corresponds to availability icons in the host list.
+            Possible value:
+            0 - not available
+            1 - available
+            2 - unknown
+          tags:
+            - tag: component
+              value: health
+            - tag: component
+              value: network
+          triggers:
+            - uuid: cbcf497f49db4510972818c676441271
+              expression: 'max(/Pylon Eaton PDU/zabbix[host,snmp,available],{$SNMP.TIMEOUT})=0'
+              name: 'No SNMP data collection'
+              opdata: 'Current state: {ITEM.LASTVALUE1}'
+              priority: WARNING
+              description: 'SNMP is not available for polling. Please check device connectivity and SNMP settings.'
+              dependencies:
+                - name: 'Unavailable by ICMP ping'
+                  expression: 'max(/Pylon Eaton PDU/icmpping,#3)=0'
+              tags:
+                - tag: scope
+                  value: availability
+      discovery_rules:
+        - uuid: 7853df86e34a441481fae2b005cbc6a4
+          name: 'PDU Discovery'
+          type: DEPENDENT
+          key: epdu
+          delay: '0'
+          item_prototypes:
+            - uuid: 56707bcf05b74cd2ba654494817513a7
+              name: '{#PDUNAME} - Firmware'
+              type: DEPENDENT
+              key: 'epdu.firmware[{#SNMPINDEX}]'
+              delay: '0'
+              value_type: TEXT
+              trends: '0'
+              preprocessing:
+                - type: SNMP_WALK_VALUE
+                  parameters:
+                    - '.1.3.6.1.4.1.534.6.6.7.1.2.1.5.{#SNMPINDEX}'
+                    - '0'
+              master_item:
+                key: walk.epdu.info
+              tags:
+                - tag: component
+                  value: firmware
+              trigger_prototypes:
+                - uuid: 89ce1895624d4b4089cdf230179bf117
+                  expression: 'last(/Pylon Eaton PDU/epdu.firmware[{#SNMPINDEX}],#1)<>last(/Pylon Eaton PDU/epdu.firmware[{#SNMPINDEX}],#2) and length(last(/Pylon Eaton PDU/epdu.firmware[{#SNMPINDEX}]))>0'
+                  name: '{#PDUNAME} - Firmware version changed'
+                  opdata: 'Current firmware: {#SNMPVALUE1}'
+                  priority: INFO
+                  description: 'Operating system description has changed. Possible reasons that system has been updated or replaced. Ack to close.'
+                  manual_close: 'YES'
+                  dependencies:
+                    - name: 'No SNMP data collection'
+                      expression: 'max(/Pylon Eaton PDU/zabbix[host,snmp,available],{$SNMP.TIMEOUT})=0'
+                  tags:
+                    - tag: scope
+                      value: notice
+            - uuid: be28c8b09b6546f086a9c480db5eb22c
+              name: '{#PDUNAME} - Hardware'
+              type: DEPENDENT
+              key: 'epdu.hardware[{#SNMPINDEX}]'
+              delay: '0'
+              value_type: TEXT
+              trends: '0'
+              preprocessing:
+                - type: SNMP_WALK_VALUE
+                  parameters:
+                    - '.1.3.6.1.4.1.534.6.6.7.1.2.1.2.{#SNMPINDEX}'
+                    - '0'
+              master_item:
+                key: walk.epdu.info
+              tags:
+                - tag: component
+                  value: hardware
+            - uuid: 16eaf3c12f274ff79d8e4559e9bd771f
+              name: '{#PDUNAME} - Input Current Limit'
+              type: DEPENDENT
+              key: 'epdu.input.currentlimit[{#SNMPINDEX}]'
+              delay: '0'
+              value_type: FLOAT
+              units: A
+              preprocessing:
+                - type: SNMP_WALK_VALUE
+                  parameters:
+                    - '.1.3.6.1.4.1.534.6.6.7.3.3.1.3.{#SNMPINDEX}.1.1'
+                    - '0'
+                - type: MULTIPLIER
+                  parameters:
+                    - '0.001'
+              master_item:
+                key: walk.epdu.inputs
+              tags:
+                - tag: component
+                  value: power
+            - uuid: 1d282a9284c4469fac047288b369081b
+              name: '{#PDUNAME} - Input Current Status'
+              type: DEPENDENT
+              key: 'epdu.input.currentstatus[{#SNMPINDEX}]'
+              delay: '0'
+              valuemap:
+                name: inputVoltageThStatus
+              preprocessing:
+                - type: SNMP_WALK_VALUE
+                  parameters:
+                    - '.1.3.6.1.4.1.534.6.6.7.3.3.1.5.{#SNMPINDEX}.1.1'
+                    - '0'
+              master_item:
+                key: walk.epdu.inputs
+              tags:
+                - tag: component
+                  value: power
+              trigger_prototypes:
+                - uuid: 0df4d9df22004354b27d909d18174e7f
+                  expression: 'last(/Pylon Eaton PDU/epdu.input.currentstatus[{#SNMPINDEX}])<>0'
+                  name: '{#PDUNAME} - Input current out of range'
+                  priority: AVERAGE
+                  description: 'The ePDU reports the input current is out of range. Please check the device logs and check the input current matches the configured value on the device'
+                  dependencies:
+                    - name: 'No SNMP data collection'
+                      expression: 'max(/Pylon Eaton PDU/zabbix[host,snmp,available],{$SNMP.TIMEOUT})=0'
+                  tags:
+                    - tag: scope
+                      value: alert
+            - uuid: b30aa4df4c8a4917a964f0d38f70b48c
+              name: '{#PDUNAME} - Input Current'
+              type: DEPENDENT
+              key: 'epdu.input.current[{#SNMPINDEX}]'
+              delay: '0'
+              value_type: FLOAT
+              units: A
+              preprocessing:
+                - type: SNMP_WALK_VALUE
+                  parameters:
+                    - '.1.3.6.1.4.1.534.6.6.7.3.3.1.4.{#SNMPINDEX}.1.1'
+                    - '0'
+                - type: MULTIPLIER
+                  parameters:
+                    - '0.001'
+              master_item:
+                key: walk.epdu.inputs
+              tags:
+                - tag: component
+                  value: power
+            - uuid: 0b642be564444b69917bd5bc922e57a1
+              name: '{#PDUNAME} - Input Frequency Status'
+              type: DEPENDENT
+              key: 'epdu.input.freqstatus[{#SNMPINDEX}]'
+              delay: '0'
+              trends: '0'
+              valuemap:
+                name: inputFrequencyStatus
+              preprocessing:
+                - type: SNMP_WALK_VALUE
+                  parameters:
+                    - '.1.3.6.1.4.1.534.6.6.7.3.1.1.4.{#SNMPINDEX}.1'
+                    - '0'
+              master_item:
+                key: walk.epdu.inputs
+              tags:
+                - tag: component
+                  value: power
+              trigger_prototypes:
+                - uuid: af588979acf044b1ab9d62f2328d5455
+                  expression: 'last(/Pylon Eaton PDU/epdu.input.freqstatus[{#SNMPINDEX}])<>0'
+                  name: '{#PDUNAME} - Input frequency out of range'
+                  priority: AVERAGE
+                  description: 'The ePDU reports the input frequency is out of range. Please check the device logs and check the input frequency matches the configured value on the device'
+                  dependencies:
+                    - name: 'No SNMP data collection'
+                      expression: 'max(/Pylon Eaton PDU/zabbix[host,snmp,available],{$SNMP.TIMEOUT})=0'
+                  tags:
+                    - tag: scope
+                      value: alert
+            - uuid: 939f215514414f3c92c47eb3706f6bbb
+              name: '{#PDUNAME} - Input Frequency'
+              type: DEPENDENT
+              key: 'epdu.input.freq[{#SNMPINDEX}]'
+              delay: '0'
+              value_type: FLOAT
+              units: Hz
+              preprocessing:
+                - type: SNMP_WALK_VALUE
+                  parameters:
+                    - '.1.3.6.1.4.1.534.6.6.7.3.1.1.3.{#SNMPINDEX}.1'
+                    - '0'
+                - type: MULTIPLIER
+                  parameters:
+                    - '0.1'
+              master_item:
+                key: walk.epdu.inputs
+              tags:
+                - tag: component
+                  value: power
+            - uuid: d4df8a62620a416788fed59ff6ef50d6
+              name: '{#PDUNAME} - Input Name'
+              type: DEPENDENT
+              key: 'epdu.input.name[{#SNMPINDEX}]'
+              delay: '0'
+              value_type: TEXT
+              trends: '0'
+              preprocessing:
+                - type: SNMP_WALK_VALUE
+                  parameters:
+                    - '.1.3.6.1.4.1.534.6.6.7.3.1.1.10.{#SNMPINDEX}.1'
+                    - '0'
+              master_item:
+                key: walk.epdu.inputs
+              tags:
+                - tag: component
+                  value: power
+            - uuid: 72b37185ecb24c24b795f5e09b78f49a
+              name: '{#PDUNAME} - Input Type'
+              type: DEPENDENT
+              key: 'epdu.input.type[{#SNMPINDEX}]'
+              delay: '0'
+              trends: '0'
+              valuemap:
+                name: inputType
+              preprocessing:
+                - type: SNMP_WALK_VALUE
+                  parameters:
+                    - '.1.3.6.1.4.1.534.6.6.7.3.1.1.2.{#SNMPINDEX}.1'
+                    - '0'
+              master_item:
+                key: walk.epdu.inputs
+              tags:
+                - tag: component
+                  value: power
+            - uuid: aa61f3d2188b4fdb9ed59613a9577c00
+              name: '{#PDUNAME} - Input Voltage Status'
+              type: DEPENDENT
+              key: 'epdu.input.voltstatus[{#SNMPINDEX}]'
+              delay: '0'
+              valuemap:
+                name: inputVoltageThStatus
+              preprocessing:
+                - type: SNMP_WALK_VALUE
+                  parameters:
+                    - '.1.3.6.1.4.1.534.6.6.7.3.2.1.4.{#SNMPINDEX}.1.1'
+                    - '0'
+                - type: MULTIPLIER
+                  parameters:
+                    - '0.001'
+              master_item:
+                key: walk.epdu.inputs
+              tags:
+                - tag: component
+                  value: power
+              trigger_prototypes:
+                - uuid: 78c1acd104e641f88cb15b374b3b32b3
+                  expression: 'last(/Pylon Eaton PDU/epdu.input.voltstatus[{#SNMPINDEX}])<>0'
+                  name: '{#PDUNAME} - Input voltage out of range'
+                  priority: AVERAGE
+                  description: 'The ePDU reports the input voltage is out of range. Please check the device logs and check the input voltage matches the configured value on the device'
+                  dependencies:
+                    - name: 'No SNMP data collection'
+                      expression: 'max(/Pylon Eaton PDU/zabbix[host,snmp,available],{$SNMP.TIMEOUT})=0'
+                  tags:
+                    - tag: scope
+                      value: alert
+            - uuid: 93a50fcb271a43d185e55b3f55f195ba
+              name: '{#PDUNAME} - Input Voltage'
+              type: DEPENDENT
+              key: 'epdu.input.volt[{#SNMPINDEX}]'
+              delay: '0'
+              value_type: FLOAT
+              units: V
+              preprocessing:
+                - type: SNMP_WALK_VALUE
+                  parameters:
+                    - '.1.3.6.1.4.1.534.6.6.7.3.2.1.3.{#SNMPINDEX}.1.1'
+                    - '0'
+                - type: MULTIPLIER
+                  parameters:
+                    - '0.001'
+              master_item:
+                key: walk.epdu.inputs
+              tags:
+                - tag: component
+                  value: power
+            - uuid: 596d57fff41140f487a7539627e24da1
+              name: '{#PDUNAME} - Part Number'
+              type: DEPENDENT
+              key: 'epdu.part[{#SNMPINDEX}]'
+              delay: '0'
+              value_type: TEXT
+              trends: '0'
+              preprocessing:
+                - type: SNMP_WALK_VALUE
+                  parameters:
+                    - '.1.3.6.1.4.1.534.6.6.7.1.2.1.3.{#SNMPINDEX}'
+                    - '0'
+              master_item:
+                key: walk.epdu.info
+              tags:
+                - tag: component
+                  value: hardware
+            - uuid: 2c86532801454855a40d60e7fe290c35
+              name: '{#PDUNAME} - Serial Number'
+              type: DEPENDENT
+              key: 'epdu.serial[{#SNMPINDEX}]'
+              delay: '0'
+              value_type: TEXT
+              trends: '0'
+              preprocessing:
+                - type: SNMP_WALK_VALUE
+                  parameters:
+                    - '.1.3.6.1.4.1.534.6.6.7.1.2.1.4.{#SNMPINDEX}'
+                    - '0'
+              master_item:
+                key: walk.epdu.info
+              tags:
+                - tag: component
+                  value: hardware
+          trigger_prototypes:
+            - uuid: 179095dd2d494589be8106acd242156f
+              expression: 'last(/Pylon Eaton PDU/epdu.input.current[{#SNMPINDEX}])>(last(/Pylon Eaton PDU/epdu.input.currentlimit[{#SNMPINDEX}])*((100-{$PDU.CURRENT_CRIT})*0.01))'
+              name: '{#PDUNAME} - Current usage critical'
+              event_name: '{#PDUNAME} - Current usage critical (Within {$PDU.CURRENT_CRIT}% of max)'
+              opdata: 'Usage: {ITEM.LASTVALUE1}'
+              priority: AVERAGE
+              description: 'Current being drawn via this input is within {$PDU.CURRENT_CRIT}% of the reported maximum draw of the unit'
+              dependencies:
+                - name: 'No SNMP data collection'
+                  expression: 'max(/Pylon Eaton PDU/zabbix[host,snmp,available],{$SNMP.TIMEOUT})=0'
+              tags:
+                - tag: scope
+                  value: alert
+            - uuid: 13933491e2e84151a424d9149548537b
+              expression: 'last(/Pylon Eaton PDU/epdu.input.current[{#SNMPINDEX}])>(last(/Pylon Eaton PDU/epdu.input.currentlimit[{#SNMPINDEX}])*((100-{$PDU.CURRENT_WARN})*0.01))'
+              name: '{#PDUNAME} - Current usage warning'
+              event_name: '{#PDUNAME} - Current usage warning (Within {$PDU.CURRENT_WARN}% of max)'
+              opdata: 'Usage: {ITEM.LASTVALUE1}'
+              priority: WARNING
+              description: 'Current being drawn via this input is within {$PDU.CURRENT_WARN}% of the reported maximum draw of the unit'
+              dependencies:
+                - name: '{#PDUNAME} - Current usage critical'
+                  expression: 'last(/Pylon Eaton PDU/epdu.input.current[{#SNMPINDEX}])>(last(/Pylon Eaton PDU/epdu.input.currentlimit[{#SNMPINDEX}])*((100-{$PDU.CURRENT_CRIT})*0.01))'
+              tags:
+                - tag: scope
+                  value: alert
+          master_item:
+            key: walk.epdu.info
+          preprocessing:
+            - type: SNMP_WALK_TO_JSON
+              parameters:
+                - '{#PDUNAME}'
+                - .1.3.6.1.4.1.534.6.6.7.1.2.1.6
+                - '0'
+        - uuid: c005ea02a3b1448cb39b86ebb0339927
+          name: 'Probe Discovery'
+          type: DEPENDENT
+          key: probes
+          delay: '0'
+          item_prototypes:
+            - uuid: ecfb6d3ee0ee483d834624bfccf79f05
+              name: '{#PROBENAME} - Communication Status'
+              type: DEPENDENT
+              key: 'probe.comms[{#SNMPINDEX}]'
+              delay: '0'
+              valuemap:
+                name: CommunicationStatus
+              preprocessing:
+                - type: SNMP_WALK_VALUE
+                  parameters:
+                    - '.1.3.6.1.4.1.534.6.8.1.1.4.1.1.{#SNMPINDEX}'
+                    - '0'
+              master_item:
+                key: walk.epdu.probes
+              tags:
+                - tag: component
+                  value: environmental
+                - tag: Location
+                  value: '{#PROBELOCATION}'
+              trigger_prototypes:
+                - uuid: cf4350299b724e89a197ee5a65e6b6c9
+                  expression: 'last(/Pylon Eaton PDU/probe.comms[{#SNMPINDEX}])<>2'
+                  name: '{#PROBENAME} - Probe Connection Warning'
+                  opdata: 'Probe State: {ITEM.LASTITEM1}'
+                  priority: WARNING
+                  dependencies:
+                    - name: 'No SNMP data collection'
+                      expression: 'max(/Pylon Eaton PDU/zabbix[host,snmp,available],{$SNMP.TIMEOUT})=0'
+                  tags:
+                    - tag: scope
+                      value: alert
+            - uuid: c1cc04fae8174586a7bd7f1a0de4832a
+              name: '{#PROBENAME} - Humidity Rate of Change'
+              type: DEPENDENT
+              key: 'probe.humidity.roc[{#SNMPINDEX}]'
+              delay: '0'
+              value_type: FLOAT
+              units: '% RH'
+              preprocessing:
+                - type: SNMP_WALK_VALUE
+                  parameters:
+                    - '.1.3.6.1.4.1.534.6.8.1.3.3.1.3.{#SNMPINDEX}.1'
+                    - '0'
+                - type: MULTIPLIER
+                  parameters:
+                    - '0.1'
+                - type: CHANGE_PER_SECOND
+                  parameters:
+                    - ''
+              master_item:
+                key: walk.epdu.probes
+              tags:
+                - tag: component
+                  value: environmental
+                - tag: Location
+                  value: '{#PROBELOCATION}'
+              trigger_prototypes:
+                - uuid: 67bae5ad39d84af984eeed7133aca2c3
+                  expression: 'last(/Pylon Eaton PDU/probe.humidity.roc[{#SNMPINDEX}])>0.3 or last(/Pylon Eaton PDU/probe.humidity.roc[{#SNMPINDEX}])<-0.3'
+                  name: '{#PROBENAME} - Humidity Rate of Change High'
+                  opdata: 'Change per second: {ITEM.LASTVALUE1}'
+                  priority: HIGH
+                  dependencies:
+                    - name: '{#PROBENAME} - Probe Connection Warning'
+                      expression: 'last(/Pylon Eaton PDU/probe.comms[{#SNMPINDEX}])<>2'
+                  tags:
+                    - tag: scope
+                      value: alert
+            - uuid: fb6649f291d2488f80dd4cb1d5003a8b
+              name: '{#PROBENAME} - Humidity'
+              type: DEPENDENT
+              key: 'probe.humidity[{#SNMPINDEX}]'
+              delay: '0'
+              value_type: FLOAT
+              units: '% RH'
+              preprocessing:
+                - type: SNMP_WALK_VALUE
+                  parameters:
+                    - '.1.3.6.1.4.1.534.6.8.1.3.3.1.3.{#SNMPINDEX}.1'
+                    - '0'
+                - type: MULTIPLIER
+                  parameters:
+                    - '0.1'
+              master_item:
+                key: walk.epdu.probes
+              tags:
+                - tag: component
+                  value: environmental
+                - tag: Location
+                  value: '{#PROBELOCATION}'
+              trigger_prototypes:
+                - uuid: 59bb96fab8534e349af1b0640b05c313
+                  expression: 'last(/Pylon Eaton PDU/probe.humidity[{#SNMPINDEX}])>{$PROBE.HUM_HIGH}'
+                  name: '{#PROBENAME} - High Humidity'
+                  event_name: '{#PROBENAME} - Humidity above {$PROBE.HUM_HIGH}'
+                  opdata: 'Reading: {ITEM.LASTVALUE1}'
+                  priority: AVERAGE
+                  dependencies:
+                    - name: '{#PROBENAME} - Probe Connection Warning'
+                      expression: 'last(/Pylon Eaton PDU/probe.comms[{#SNMPINDEX}])<>2'
+                  tags:
+                    - tag: scope
+                      value: alert
+                - uuid: 382e825b5c244600b60cca0f9cf9a179
+                  expression: 'last(/Pylon Eaton PDU/probe.humidity[{#SNMPINDEX}])<{$PROBE.HUM_LOW}'
+                  name: '{#PROBENAME} - Low Humidity'
+                  event_name: '{#PROBENAME} - Humidity below {$PROBE.HUM_LOW}'
+                  opdata: 'Reading: {ITEM.LASTVALUE1}'
+                  priority: AVERAGE
+                  dependencies:
+                    - name: '{#PROBENAME} - Probe Connection Warning'
+                      expression: 'last(/Pylon Eaton PDU/probe.comms[{#SNMPINDEX}])<>2'
+                  tags:
+                    - tag: scope
+                      value: alert
+            - uuid: bf305a3946c04c258497d75eaebb2c7f
+              name: '{#PROBENAME} - Input 1 Status'
+              type: DEPENDENT
+              key: 'probe.input1[{#SNMPINDEX}]'
+              delay: '0'
+              valuemap:
+                name: AlarmLevelType
+              preprocessing:
+                - type: SNMP_WALK_VALUE
+                  parameters:
+                    - '.1.3.6.1.4.1.534.6.8.1.4.3.1.1.{#SNMPINDEX}.1'
+                    - '0'
+              master_item:
+                key: walk.epdu.probes
+              tags:
+                - tag: component
+                  value: environmental
+                - tag: Location
+                  value: '{#PROBELOCATION}'
+              trigger_prototypes:
+                - uuid: 2c5ddb9a4142408687290de0f8290050
+                  expression: 'last(/Pylon Eaton PDU/probe.input1[{#SNMPINDEX}])<>0'
+                  name: '{#PROBENAME} - Input 1 State in Warning'
+                  opdata: 'Input State: {ITEM.LASTITEM1}'
+                  priority: WARNING
+                  dependencies:
+                    - name: '{#PROBENAME} - Probe Connection Warning'
+                      expression: 'last(/Pylon Eaton PDU/probe.comms[{#SNMPINDEX}])<>2'
+                  tags:
+                    - tag: scope
+                      value: alert
+            - uuid: 1c494b367bbf45da919d1edb16204c8a
+              name: '{#PROBENAME} - Input 2 Status'
+              type: DEPENDENT
+              key: 'probe.input2[{#SNMPINDEX}]'
+              delay: '0'
+              valuemap:
+                name: AlarmLevelType
+              preprocessing:
+                - type: SNMP_WALK_VALUE
+                  parameters:
+                    - '.1.3.6.1.4.1.534.6.8.1.4.3.1.1.{#SNMPINDEX}.2'
+                    - '0'
+              master_item:
+                key: walk.epdu.probes
+              tags:
+                - tag: component
+                  value: environmental
+                - tag: Location
+                  value: '{#PROBELOCATION}'
+              trigger_prototypes:
+                - uuid: dc9b54b3034d402f8d8ed5de5a90d429
+                  expression: 'last(/Pylon Eaton PDU/probe.input2[{#SNMPINDEX}])<>0'
+                  name: '{#PROBENAME} - Input 2 State in Warning'
+                  opdata: 'Input State: {ITEM.LASTITEM1}'
+                  priority: WARNING
+                  dependencies:
+                    - name: '{#PROBENAME} - Probe Connection Warning'
+                      expression: 'last(/Pylon Eaton PDU/probe.comms[{#SNMPINDEX}])<>2'
+                  tags:
+                    - tag: scope
+                      value: alert
+            - uuid: 95dfb69270bc44a9b26276a5303c96b2
+              name: '{#PROBENAME} - Temperature Rate of Change'
+              type: DEPENDENT
+              key: 'probe.temp.roc[{#SNMPINDEX}]'
+              delay: '0'
+              value_type: FLOAT
+              units: °C
+              preprocessing:
+                - type: SNMP_WALK_VALUE
+                  parameters:
+                    - '.1.3.6.1.4.1.534.6.8.1.2.3.1.3.{#SNMPINDEX}.1'
+                    - '0'
+                - type: MULTIPLIER
+                  parameters:
+                    - '0.1'
+                - type: CHANGE_PER_SECOND
+                  parameters:
+                    - ''
+              master_item:
+                key: walk.epdu.probes
+              tags:
+                - tag: component
+                  value: environmental
+                - tag: Location
+                  value: '{#PROBELOCATION}'
+              trigger_prototypes:
+                - uuid: 2b3c9fc8a72f48df805525eb96fbc066
+                  expression: 'last(/Pylon Eaton PDU/probe.temp.roc[{#SNMPINDEX}])>0.3 or last(/Pylon Eaton PDU/probe.temp.roc[{#SNMPINDEX}])<-0.3'
+                  name: '{#PROBENAME} - Temperature Rate of Change High'
+                  opdata: 'Change per second: {ITEM.LASTVALUE1}'
+                  priority: HIGH
+                  dependencies:
+                    - name: '{#PROBENAME} - Probe Connection Warning'
+                      expression: 'last(/Pylon Eaton PDU/probe.comms[{#SNMPINDEX}])<>2'
+                  tags:
+                    - tag: scope
+                      value: alert
+            - uuid: 6e874fb201de4f0690d644b2049df3d6
+              name: '{#PROBENAME} - Temperature'
+              type: DEPENDENT
+              key: 'probe.temp[{#SNMPINDEX}]'
+              delay: '0'
+              value_type: FLOAT
+              units: °C
+              preprocessing:
+                - type: SNMP_WALK_VALUE
+                  parameters:
+                    - '.1.3.6.1.4.1.534.6.8.1.2.3.1.3.{#SNMPINDEX}.1'
+                    - '0'
+                - type: MULTIPLIER
+                  parameters:
+                    - '0.1'
+              master_item:
+                key: walk.epdu.probes
+              tags:
+                - tag: component
+                  value: environmental
+                - tag: Location
+                  value: '{#PROBELOCATION}'
+              trigger_prototypes:
+                - uuid: 065aeb433ca9403b8bdff94655351cf7
+                  expression: 'last(/Pylon Eaton PDU/probe.temp[{#SNMPINDEX}])>{$PROBE.TEMP_HIGH}'
+                  name: '{#PROBENAME} - High Temp'
+                  event_name: '{#PROBENAME} - Temperature above {$PROBE.TEMP_HIGH}'
+                  opdata: 'Reading: {ITEM.LASTVALUE1}'
+                  priority: AVERAGE
+                  dependencies:
+                    - name: '{#PROBENAME} - Probe Connection Warning'
+                      expression: 'last(/Pylon Eaton PDU/probe.comms[{#SNMPINDEX}])<>2'
+                  tags:
+                    - tag: scope
+                      value: alert
+                - uuid: fbc1108742ce4c6e97d7fee891abfb38
+                  expression: 'last(/Pylon Eaton PDU/probe.temp[{#SNMPINDEX}])<{$PROBE.TEMP_LOW}'
+                  name: '{#PROBENAME} - Low Temp'
+                  event_name: '{#PROBENAME} - Temperature below {$PROBE.TEMP_LOW}'
+                  opdata: 'Reading: {ITEM.LASTVALUE1}'
+                  priority: AVERAGE
+                  dependencies:
+                    - name: '{#PROBENAME} - Probe Connection Warning'
+                      expression: 'last(/Pylon Eaton PDU/probe.comms[{#SNMPINDEX}])<>2'
+                  tags:
+                    - tag: scope
+                      value: alert
+          master_item:
+            key: walk.epdu.probes
+          preprocessing:
+            - type: SNMP_WALK_TO_JSON
+              parameters:
+                - '{#PROBENAME}'
+                - .1.3.6.1.4.1.534.6.8.1.1.3.1.1
+                - '0'
+                - '{#PROBELOCATION}'
+                - .1.3.6.1.4.1.534.6.8.1.1.3.1.2
+                - '0'
+      macros:
+        - macro: '{$PDU.CURRENT_CRIT}'
+          value: '10'
+          description: 'Threshold for critical warning for current usage'
+        - macro: '{$PDU.CURRENT_WARN}'
+          value: '20'
+          description: 'Threshold for warning for current usage'
+        - macro: '{$PROBE.HUM_HIGH}'
+          value: '75'
+        - macro: '{$PROBE.HUM_LOW}'
+          value: '25'
+        - macro: '{$PROBE.TEMP_HIGH}'
+          value: '30'
+        - macro: '{$PROBE.TEMP_LOW}'
+          value: '10'
+        - macro: '{$SNMP.TIMEOUT}'
+          value: 5m
+          description: 'SNMP Timeout'
+      valuemaps:
+        - uuid: aa43410dd69b4d01adf4d1d6ab6a678f
+          name: AlarmLevelType
+          mappings:
+            - value: '0'
+              newvalue: good
+            - value: '1'
+              newvalue: informationnal
+            - value: '2'
+              newvalue: warning
+            - value: '3'
+              newvalue: critical
+        - uuid: 744332d1dc0a4c33b0f19e3055f45e63
+          name: CommunicationStatus
+          mappings:
+            - value: '2'
+              newvalue: communicationOK
+            - value: '3'
+              newvalue: communicationLost
+            - type: DEFAULT
+              newvalue: unknown
+        - uuid: 970706f83e7042e38519338da42adc0f
+          name: inputFrequencyStatus
+          mappings:
+            - value: '0'
+              newvalue: good
+            - value: '1'
+              newvalue: outOfRange
+        - uuid: 2062936e48064798a3a1f7a585144cf6
+          name: inputType
+          mappings:
+            - value: '1'
+              newvalue: singlePhase
+            - value: '2'
+              newvalue: splitPhase
+            - value: '3'
+              newvalue: threePhaseDelta
+            - value: '4'
+              newvalue: threePhaseWye
+        - uuid: 8a9692395b9b4f48aca68d0d7147ac7e
+          name: inputVoltageThStatus
+          mappings:
+            - value: '0'
+              newvalue: good
+            - value: '1'
+              newvalue: lowWarning
+            - value: '2'
+              newvalue: lowCritical
+            - value: '3'
+              newvalue: highWarning
+            - value: '4'
+              newvalue: highCritical

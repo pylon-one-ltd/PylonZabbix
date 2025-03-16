@@ -1,0 +1,17 @@
+zabbix_export:
+  version: '7.0'
+  template_groups:
+    - uuid: bf8846d58f414cd488b718c930236658
+      name: 'Templates/Pylon Templates'
+  templates:
+    - uuid: 0b4a19cd3e7e43878de21f06295e1fe3
+      template: 'Pylon InfloBlox Template'
+      name: 'Pylon InfloBlox Template'
+      templates:
+        - name: 'Network Generic Device SNMP'
+        - name: 'Template SNMP Infoblox'
+      groups:
+        - name: 'Templates/Pylon Templates'
+      tags:
+        - tag: IsUPS
+          value: 'False'

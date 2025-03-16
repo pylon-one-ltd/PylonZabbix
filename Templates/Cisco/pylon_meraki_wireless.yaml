@@ -1,0 +1,443 @@
+zabbix_export:
+  version: '7.0'
+  template_groups:
+    - uuid: bf8846d58f414cd488b718c930236658
+      name: 'Templates/Pylon Templates'
+  host_groups:
+    - uuid: 82257a64eda04e509b6a3b4a66b04603
+      name: 'Host/Meraki Wireless'
+  templates:
+    - uuid: 36c6bddd59a34042ab0e69825ea5e1ac
+      template: 'Pylon Meraki Wireless Networks'
+      name: 'Pylon Meraki Wireless Networks'
+      description: 'Monitor Meraki wireless via the HTTP API'
+      groups:
+        - name: 'Templates/Pylon Templates'
+      items:
+        - uuid: 9f73fa47d536455fa705a32f4c7245d8
+          name: 'Get Meraki Wireless Networks'
+          type: HTTP_AGENT
+          key: meraki.network
+          delay: 1h
+          history: '0'
+          value_type: TEXT
+          trends: '0'
+          description: 'Fetch the available networks for the provided API key from the Meraki API'
+          preprocessing:
+            - type: JSONPATH
+              parameters:
+                - $.body
+          timeout: 10s
+          url: '{$MERAKI.DASHBOARD}/organizations/{$MERAKI.ORGID}/networks?productTypes[]=wireless'
+          headers:
+            - name: Authorization
+              value: 'Bearer {$MERAKI.APIKEY}'
+          output_format: JSON
+        - uuid: c44b6831b10c493286258832892aeca8
+          name: 'Number of Wireless Networks in Org'
+          type: DEPENDENT
+          key: meraki.network.count
+          delay: '0'
+          preprocessing:
+            - type: JSONPATH
+              parameters:
+                - $.length()
+          master_item:
+            key: meraki.network
+      discovery_rules:
+        - uuid: 9ef21940b0944ba59bab138331cb3110
+          name: 'Meraki Wireless Network Discovery'
+          type: DEPENDENT
+          key: meraki.network.discovery
+          delay: '0'
+          host_prototypes:
+            - uuid: 0194ff5f219241dfb1f759fbc01296b4
+              host: '{#NET_ID}'
+              name: 'Meraki Wireless - {#NET_NAME}'
+              inventory_mode: AUTOMATIC
+              group_links:
+                - group:
+                    name: 'Host/Meraki Wireless'
+              templates:
+                - name: 'Pylon Meraki Wireless Stats'
+              macros:
+                - macro: '{$MERAKI.NETWORKID}'
+                  value: '{#NET_ID}'
+                  description: 'Meraki Network ID'
+                - macro: '{$MERAKI.NETWORKNAME}'
+                  value: '{#NET_NAME}'
+                  description: 'Meraki Network Name'
+              tags:
+                - tag: 'Network ID'
+                  value: '{#NET_ID}'
+                - tag: Tags
+                  value: '{#NET_TAGS}'
+          master_item:
+            key: meraki.network
+          lld_macro_paths:
+            - lld_macro: '{#NET_ID}'
+              path: $.id
+            - lld_macro: '{#NET_NAME}'
+              path: $.name
+            - lld_macro: '{#NET_TAGS}'
+              path: $.tags
+      macros:
+        - macro: '{$MERAKI.APIKEY}'
+          description: 'Meraki API Key'
+        - macro: '{$MERAKI.DASHBOARD}'
+          value: 'https://api.meraki.com/api/v1'
+          description: 'Meraki API endpoint'
+        - macro: '{$MERAKI.ORGID}'
+          description: 'Merak Organisation ID (Numerical)'
+    - uuid: 8f5757764e3f4a739790699987d1fe96
+      template: 'Pylon Meraki Wireless Stats'
+      name: 'Pylon Meraki Wireless Stats'
+      groups:
+        - name: 'Templates/Pylon Templates'
+      items:
+        - uuid: f98b71bad95b45afa79189444708e76f
+          name: 'Get Client Data'
+          type: HTTP_AGENT
+          key: meraki.wireless.clients
+          delay: 30s
+          history: '0'
+          value_type: TEXT
+          trends: '0'
+          description: 'Fetch data from Meraki API'
+          preprocessing:
+            - type: JSONPATH
+              parameters:
+                - $.body
+          timeout: 10s
+          url: '{$MERAKI.DASHBOARD}/organizations/{$MERAKI.ORGID}/wireless/clients/overview/byDevice?networkIds[]={$MERAKI.NETWORKID}'
+          headers:
+            - name: Authorization
+              value: 'Bearer {$MERAKI.APIKEY}'
+          output_format: JSON
+        - uuid: bede899688184318b3fabf2744596b3f
+          name: 'Get Device Channel Utilisation'
+          type: HTTP_AGENT
+          key: meraki.wireless.device.channelutil
+          delay: 5m
+          history: '0'
+          value_type: TEXT
+          trends: '0'
+          description: 'Fetch data from Meraki API'
+          preprocessing:
+            - type: JSONPATH
+              parameters:
+                - $.body
+          timeout: 10s
+          url: '{$MERAKI.DASHBOARD}/organizations/{$MERAKI.ORGID}/wireless/devices/channelUtilization/byDevice?networkIds[]={$MERAKI.NETWORKID}'
+          headers:
+            - name: Authorization
+              value: 'Bearer {$MERAKI.APIKEY}'
+          output_format: JSON
+        - uuid: 0ec9c3cb31df487080cfd0cf6717ed84
+          name: 'Get Device CPU Data'
+          type: HTTP_AGENT
+          key: meraki.wireless.device.cpu
+          delay: 5m
+          history: '0'
+          value_type: TEXT
+          trends: '0'
+          description: 'Fetch data from Meraki API'
+          preprocessing:
+            - type: JSONPATH
+              parameters:
+                - $.body
+          timeout: 10s
+          url: '{$MERAKI.DASHBOARD}/organizations/{$MERAKI.ORGID}/wireless/devices/system/cpu/load/history?networkIds[]={$MERAKI.NETWORKID}'
+          headers:
+            - name: Authorization
+              value: 'Bearer {$MERAKI.APIKEY}'
+          output_format: JSON
+        - uuid: a9b9085352c24eab90101e3bb61378a0
+          name: 'Get Device Status Data'
+          type: HTTP_AGENT
+          key: meraki.wireless.device.status
+          history: '0'
+          value_type: TEXT
+          trends: '0'
+          description: 'Fetch data from Meraki API'
+          preprocessing:
+            - type: JSONPATH
+              parameters:
+                - $.body
+          timeout: 10s
+          url: '{$MERAKI.DASHBOARD}/organizations/{$MERAKI.ORGID}/devices/availabilities?productTypes[]=wireless&networkIds[]={$MERAKI.NETWORKID}'
+          headers:
+            - name: Authorization
+              value: 'Bearer {$MERAKI.APIKEY}'
+          output_format: JSON
+      discovery_rules:
+        - uuid: 85f691d05bbe444b9630737d01cd029c
+          name: 'Wireless AP Discovery'
+          type: DEPENDENT
+          key: meraki.wireless.discovery
+          delay: '0'
+          item_prototypes:
+            - uuid: d46c9aca8e1949e68272283c7af7f476
+              name: '{#AP_NAME} - 2.4GHz WiFi Utilisation'
+              type: DEPENDENT
+              key: 'meraki.wireless.device.channelutil[{#AP_SERIAL}, "2.4"]'
+              delay: '0'
+              value_type: FLOAT
+              trends: '0'
+              units: '%'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$[?(@.serial == ''{#AP_SERIAL}'')].byBand[?(@.band == ''2.4'')].wifi.percentage.first()'
+                  error_handler: CUSTOM_VALUE
+                  error_handler_params: '0'
+              master_item:
+                key: meraki.wireless.device.channelutil
+              tags:
+                - tag: Tags
+                  value: '{#AP_TAGS}'
+            - uuid: ade5e8ac053d4c99a49556da4cde9cf3
+              name: '{#AP_NAME} - 5GHz WiFi Utilisation'
+              type: DEPENDENT
+              key: 'meraki.wireless.device.channelutil[{#AP_SERIAL}, "5"]'
+              delay: '0'
+              value_type: FLOAT
+              trends: '0'
+              units: '%'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$[?(@.serial == ''{#AP_SERIAL}'')].byBand[?(@.band == ''5'')].wifi.percentage.first()'
+                  error_handler: CUSTOM_VALUE
+                  error_handler_params: '0'
+              master_item:
+                key: meraki.wireless.device.channelutil
+              tags:
+                - tag: Tags
+                  value: '{#AP_TAGS}'
+            - uuid: 0737b8b5b3b649d997cd566deb5d6565
+              name: '{#AP_NAME} - 6GHz WiFi Utilisation'
+              type: DEPENDENT
+              key: 'meraki.wireless.device.channelutil[{#AP_SERIAL}, "6"]'
+              delay: '0'
+              value_type: FLOAT
+              trends: '0'
+              units: '%'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$[?(@.serial == ''{#AP_SERIAL}'')].byBand[?(@.band == ''6'')].wifi.percentage.first()'
+                  error_handler: CUSTOM_VALUE
+                  error_handler_params: '0'
+              master_item:
+                key: meraki.wireless.device.channelutil
+              tags:
+                - tag: Tags
+                  value: '{#AP_TAGS}'
+            - uuid: 160eeda9b7f84d6296836ee01cc3ed99
+              name: '{#AP_NAME} - Client Count'
+              type: DEPENDENT
+              key: 'meraki.wireless.device.clients[{#AP_SERIAL}]'
+              delay: '0'
+              units: Clients
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.items[?(@.serial == ''{#AP_SERIAL}'')].counts.byStatus.online.first()'
+                  error_handler: CUSTOM_VALUE
+                  error_handler_params: '0'
+              master_item:
+                key: meraki.wireless.clients
+              tags:
+                - tag: Tags
+                  value: '{#AP_TAGS}'
+              trigger_prototypes:
+                - uuid: ede49b6bc9a94123847abd9123cb5a4a
+                  expression: 'last(/Pylon Meraki Wireless Stats/meraki.wireless.device.clients[{#AP_SERIAL}])>100'
+                  name: '{#AP_NAME} has excessive client count'
+                  opdata: 'Current client count: {ITEM.LASTVALUE1}'
+                  priority: INFO
+                  description: 'The AP reports a client count in excess of 100 clients'
+                  tags:
+                    - tag: Tags
+                      value: '{#AP_TAGS}'
+            - uuid: f5c34c84596745fea3c0113e4596fd4e
+              name: '{#AP_NAME} - CPU Usage'
+              type: DEPENDENT
+              key: 'meraki.wireless.device.cpu[{#AP_SERIAL}]'
+              delay: '0'
+              value_type: FLOAT
+              trends: '0'
+              units: '%'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.items[?(@.serial == ''{#AP_SERIAL}'')].series[-1:].cpuLoad5.first()'
+                  error_handler: CUSTOM_VALUE
+                  error_handler_params: '0'
+                - type: MULTIPLIER
+                  parameters:
+                    - '0.0002'
+              master_item:
+                key: meraki.wireless.device.cpu
+              tags:
+                - tag: Tags
+                  value: '{#AP_TAGS}'
+            - uuid: 075a366774b442e6b57e406efb53d2ee
+              name: '{#AP_NAME} - 2.4GHz Non-WiFi Utilisation'
+              type: DEPENDENT
+              key: 'meraki.wireless.device.nonwifi[{#AP_SERIAL}, "2.4"]'
+              delay: '0'
+              value_type: FLOAT
+              trends: '0'
+              units: '%'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$[?(@.serial == ''{#AP_SERIAL}'')].byBand[?(@.band == ''2.4'')].nonWifi.percentage.first()'
+                  error_handler: CUSTOM_VALUE
+                  error_handler_params: '0'
+              master_item:
+                key: meraki.wireless.device.channelutil
+              tags:
+                - tag: Tags
+                  value: '{#AP_TAGS}'
+            - uuid: 9c94b744c76c48038e1ac4adfa7047a4
+              name: '{#AP_NAME} - 5GHz Non-WiFi Utilisation'
+              type: DEPENDENT
+              key: 'meraki.wireless.device.nonwifi[{#AP_SERIAL}, "5"]'
+              delay: '0'
+              value_type: FLOAT
+              trends: '0'
+              units: '%'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$[?(@.serial == ''{#AP_SERIAL}'')].byBand[?(@.band == ''5'')].nonWifi.percentage.first()'
+                  error_handler: CUSTOM_VALUE
+                  error_handler_params: '0'
+              master_item:
+                key: meraki.wireless.device.channelutil
+              tags:
+                - tag: Tags
+                  value: '{#AP_TAGS}'
+            - uuid: 3f5fd2fb711a4d9693c3ffad7e2aeafd
+              name: '{#AP_NAME} - 6GHz Non-WiFi Utilisation'
+              type: DEPENDENT
+              key: 'meraki.wireless.device.nonwifi[{#AP_SERIAL}, "6"]'
+              delay: '0'
+              value_type: FLOAT
+              trends: '0'
+              units: '%'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$[?(@.serial == ''{#AP_SERIAL}'')].byBand[?(@.band == ''6'')].nonWifi.percentage.first()'
+                  error_handler: CUSTOM_VALUE
+                  error_handler_params: '0'
+              master_item:
+                key: meraki.wireless.device.channelutil
+              tags:
+                - tag: Tags
+                  value: '{#AP_TAGS}'
+            - uuid: e00e4475529c4ee4b313949af088f753
+              name: '{#AP_NAME} - AP Status'
+              type: DEPENDENT
+              key: 'meraki.wireless.device.status[{#AP_SERIAL}]'
+              delay: '0'
+              value_type: TEXT
+              trends: '0'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$[?(@.serial == ''{#AP_SERIAL}'')].status.first()'
+                  error_handler: CUSTOM_VALUE
+                  error_handler_params: unknown
+              master_item:
+                key: meraki.wireless.device.status
+              tags:
+                - tag: Tags
+                  value: '{#AP_TAGS}'
+              trigger_prototypes:
+                - uuid: b3713ed675404569b45bce2ba3698935
+                  expression: 'last(/Pylon Meraki Wireless Stats/meraki.wireless.device.status[{#AP_SERIAL}])<>"online"'
+                  name: '{#AP_NAME} not online'
+                  opdata: 'Current AP State: {ITEM.LASTVALUE1}'
+                  priority: WARNING
+                  description: 'The AP reports a status of something other than "online"'
+                  tags:
+                    - tag: Tags
+                      value: '{#AP_TAGS}'
+            - uuid: 9092d526b0a744139f87254fff50dc01
+              name: '{#AP_NAME} - 2.4GHz Total Utilisation'
+              type: DEPENDENT
+              key: 'meraki.wireless.device.totalutil[{#AP_SERIAL}, "2.4"]'
+              delay: '0'
+              value_type: FLOAT
+              trends: '0'
+              units: '%'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$[?(@.serial == ''{#AP_SERIAL}'')].byBand[?(@.band == ''2.4'')].total.percentage.first()'
+                  error_handler: CUSTOM_VALUE
+                  error_handler_params: '0'
+              master_item:
+                key: meraki.wireless.device.channelutil
+              tags:
+                - tag: Tags
+                  value: '{#AP_TAGS}'
+            - uuid: 21cdf62031484899b7ca15d568f62186
+              name: '{#AP_NAME} - 5GHz Total Utilisation'
+              type: DEPENDENT
+              key: 'meraki.wireless.device.totalutil[{#AP_SERIAL}, "5"]'
+              delay: '0'
+              value_type: FLOAT
+              trends: '0'
+              units: '%'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$[?(@.serial == ''{#AP_SERIAL}'')].byBand[?(@.band == ''5'')].total.percentage.first()'
+                  error_handler: CUSTOM_VALUE
+                  error_handler_params: '0'
+              master_item:
+                key: meraki.wireless.device.channelutil
+              tags:
+                - tag: Tags
+                  value: '{#AP_TAGS}'
+            - uuid: e930060d19404cf0b457cf60c6ca8f99
+              name: '{#AP_NAME} - 6GHz Total Utilisation'
+              type: DEPENDENT
+              key: 'meraki.wireless.device.totalutil[{#AP_SERIAL}, "6"]'
+              delay: '0'
+              value_type: FLOAT
+              trends: '0'
+              units: '%'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$[?(@.serial == ''{#AP_SERIAL}'')].byBand[?(@.band == ''6'')].total.percentage.first()'
+                  error_handler: CUSTOM_VALUE
+                  error_handler_params: '0'
+              master_item:
+                key: meraki.wireless.device.channelutil
+              tags:
+                - tag: Tags
+                  value: '{#AP_TAGS}'
+          master_item:
+            key: meraki.wireless.device.status
+          lld_macro_paths:
+            - lld_macro: '{#AP_MAC}'
+              path: $.mac
+            - lld_macro: '{#AP_NAME}'
+              path: $.name
+            - lld_macro: '{#AP_SERIAL}'
+              path: $.serial
+            - lld_macro: '{#AP_TAGS}'
+              path: $.tags
+      macros:
+        - macro: '{$MERAKI.NETWORKID}'
+          description: 'Meraki Network ID'
+        - macro: '{$MERAKI.NETWORKNAME}'
+          description: 'Meraki Network Name'

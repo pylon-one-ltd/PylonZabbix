@@ -1,0 +1,238 @@
+zabbix_export:
+  version: '7.0'
+  template_groups:
+    - uuid: 41cea2366f54473e830cd8b232e73c07
+      name: Aircon
+  templates:
+    - uuid: d9d5baac747e44a490efafd3379c3d1a
+      template: 'Pylon Mitsubishi AE-200'
+      name: 'Pylon Mitsubishi AE-200'
+      groups:
+        - name: Aircon
+      items:
+        - uuid: 9ea058664605477ca73b16eddea6b7ac
+          name: 'ICMP loss'
+          type: SIMPLE
+          key: 'icmppingloss[{$PING.IP}]'
+          delay: 30s
+          history: 1w
+          value_type: FLOAT
+          units: '%'
+          tags:
+            - tag: component
+              value: health
+            - tag: component
+              value: network
+          triggers:
+            - uuid: 6d98ae1d3d304c809af0b226dccbcec5
+              expression: 'min(/Pylon Mitsubishi AE-200/icmppingloss[{$PING.IP}],5m)>{$ICMP_LOSS_WARN} and min(/Pylon Mitsubishi AE-200/icmppingloss[{$PING.IP}],5m)<100'
+              name: 'High ICMP ping loss'
+              opdata: 'Loss: {ITEM.LASTVALUE1}'
+              priority: WARNING
+              dependencies:
+                - name: 'Unavailable by ICMP ping'
+                  expression: 'max(/Pylon Mitsubishi AE-200/icmpping[{$PING.IP}],#3)=0'
+              tags:
+                - tag: scope
+                  value: availability
+                - tag: scope
+                  value: performance
+        - uuid: 8b36bfcb46fd44eebd7dcc35b540bb45
+          name: 'ICMP response time'
+          type: SIMPLE
+          key: 'icmppingsec[{$PING.IP}]'
+          history: 1w
+          value_type: FLOAT
+          units: s
+          tags:
+            - tag: component
+              value: health
+            - tag: component
+              value: network
+          triggers:
+            - uuid: 26a10eda5f1748ef80b12f8335bc1d89
+              expression: 'avg(/Pylon Mitsubishi AE-200/icmppingsec[{$PING.IP}],5m)>{$ICMP_RESPONSE_TIME_WARN}'
+              name: 'High ICMP ping response time'
+              opdata: 'Value: {ITEM.LASTVALUE1}'
+              priority: WARNING
+              dependencies:
+                - name: 'High ICMP ping loss'
+                  expression: 'min(/Pylon Mitsubishi AE-200/icmppingloss[{$PING.IP}],5m)>{$ICMP_LOSS_WARN} and min(/Pylon Mitsubishi AE-200/icmppingloss[{$PING.IP}],5m)<100'
+                - name: 'Unavailable by ICMP ping'
+                  expression: 'max(/Pylon Mitsubishi AE-200/icmpping[{$PING.IP}],#3)=0'
+              tags:
+                - tag: scope
+                  value: availability
+                - tag: scope
+                  value: performance
+        - uuid: 69c4bfde926b47f88f7059d5eef514d0
+          name: 'ICMP ping'
+          type: SIMPLE
+          key: 'icmpping[{$PING.IP}]'
+          delay: 30s
+          history: 1w
+          tags:
+            - tag: component
+              value: health
+            - tag: component
+              value: network
+          triggers:
+            - uuid: 7115c6d5fd634fc688bb824784cde99b
+              expression: 'max(/Pylon Mitsubishi AE-200/icmpping[{$PING.IP}],#3)=0'
+              name: 'Unavailable by ICMP ping'
+              priority: HIGH
+              description: 'Last three attempts returned timeout.  Please check device connectivity.'
+              tags:
+                - tag: scope
+                  value: availability
+      discovery_rules:
+        - uuid: 875df3cd169944ed8448f9c55710ae44
+          name: 'Air Unit Discovery'
+          type: TRAP
+          key: ae200_unit
+          delay: '0'
+          allowed_hosts: 127.0.0.1
+          item_prototypes:
+            - uuid: 4a3a599ecb7c470d9794eef46ae8069f
+              name: '{#UNITNAME} - Air Direction'
+              type: TRAP
+              key: 'ae200_unit.AirDirection[{#KEYNAME}]'
+              delay: '0'
+              value_type: TEXT
+              trends: '0'
+              allowed_hosts: 127.0.0.1
+            - uuid: dea0716587e14451804ff23007a98f78
+              name: '{#UNITNAME} - Check Water State'
+              type: TRAP
+              key: 'ae200_unit.CheckWater[{#KEYNAME}]'
+              delay: '0'
+              value_type: TEXT
+              trends: '0'
+              allowed_hosts: 127.0.0.1
+              trigger_prototypes:
+                - uuid: ff5be8f2e33e4e30add074aeec14af80
+                  expression: 'last(/Pylon Mitsubishi AE-200/ae200_unit.CheckWater[{#KEYNAME}])<>"OFF"'
+                  name: '{#UNITNAME} - Water Check Required'
+                  opdata: 'Water Flag: {ITEM.LASTVALUE1}'
+                  priority: WARNING
+            - uuid: 41887216d9be46cb9421eab771dbbdf1
+              name: '{#UNITNAME} - Status'
+              type: TRAP
+              key: 'ae200_unit.Drive[{#KEYNAME}]'
+              delay: '0'
+              value_type: TEXT
+              trends: '0'
+              allowed_hosts: 127.0.0.1
+            - uuid: d003223d8e7649aeb1bd99787531a896
+              name: '{#UNITNAME} - Error State'
+              type: TRAP
+              key: 'ae200_unit.ErrorSign[{#KEYNAME}]'
+              delay: '0'
+              value_type: TEXT
+              trends: '0'
+              allowed_hosts: 127.0.0.1
+              trigger_prototypes:
+                - uuid: 111c80e3f72d4c029bf3a51fd5460a76
+                  expression: 'last(/Pylon Mitsubishi AE-200/ae200_unit.ErrorSign[{#KEYNAME}])<>"OFF"'
+                  name: '{#UNITNAME} - Errors Detected'
+                  opdata: 'Error Flag: {ITEM.LASTVALUE1}'
+                  priority: AVERAGE
+            - uuid: da2445c12de14fb5ae2987f899aea081
+              name: '{#UNITNAME} - Fan Speed'
+              type: TRAP
+              key: 'ae200_unit.FanSpeed[{#KEYNAME}]'
+              delay: '0'
+              value_type: TEXT
+              trends: '0'
+              allowed_hosts: 127.0.0.1
+            - uuid: 44a83965dd344f6184e9d5d8323d6dd5
+              name: '{#UNITNAME} - Filter State'
+              type: TRAP
+              key: 'ae200_unit.FilterSign[{#KEYNAME}]'
+              delay: '0'
+              value_type: TEXT
+              trends: '0'
+              allowed_hosts: 127.0.0.1
+              trigger_prototypes:
+                - uuid: fe9fe932d15e434ca58fe88eed7c2709
+                  expression: 'last(/Pylon Mitsubishi AE-200/ae200_unit.FilterSign[{#KEYNAME}])<>"OFF"'
+                  name: '{#UNITNAME} - Filter Clean Required'
+                  opdata: 'Clean Flag: {ITEM.LASTVALUE1}'
+                  status: DISABLED
+                  priority: WARNING
+            - uuid: c18bc7e35e77478380bf52f51780b8cb
+              name: '{#UNITNAME} - Inlet Temperature'
+              type: TRAP
+              key: 'ae200_unit.InletTemp[{#KEYNAME}]'
+              delay: '0'
+              value_type: FLOAT
+              allowed_hosts: 127.0.0.1
+              units: celcius
+              trigger_prototypes:
+                - uuid: c3a6942f41054b098818d927dd4ce35f
+                  expression: 'last(/Pylon Mitsubishi AE-200/ae200_unit.InletTemp[{#KEYNAME}])>29'
+                  name: '{#UNITNAME} - Room Temp Above 30C'
+                  opdata: 'Current Temperature: {ITEM.LASTVALUE1}'
+                  priority: AVERAGE
+            - uuid: 33bc28871f524ac980cacd167d99c849
+              name: '{#UNITNAME} - Mode Status'
+              type: TRAP
+              key: 'ae200_unit.ModeStatus[{#KEYNAME}]'
+              delay: '0'
+              value_type: TEXT
+              trends: '0'
+              allowed_hosts: 127.0.0.1
+            - uuid: e13d1d2ec61d412f93780bde2e66d3aa
+              name: '{#UNITNAME} - Operation Mode'
+              type: TRAP
+              key: 'ae200_unit.Mode[{#KEYNAME}]'
+              delay: '0'
+              value_type: TEXT
+              trends: '0'
+              allowed_hosts: 127.0.0.1
+            - uuid: 6a793486728648199c677f9ff504df2f
+              name: '{#UNITNAME} - Room Controller Enabled'
+              type: TRAP
+              key: 'ae200_unit.RemoCon[{#KEYNAME}]'
+              delay: '0'
+              value_type: TEXT
+              trends: '0'
+              allowed_hosts: 127.0.0.1
+            - uuid: 164a95c2dd534a34976c20d3808e7d64
+              name: '{#UNITNAME} - Schedule Available'
+              type: TRAP
+              key: 'ae200_unit.ScheduleAvail[{#KEYNAME}]'
+              delay: '0'
+              value_type: TEXT
+              trends: '0'
+              allowed_hosts: 127.0.0.1
+            - uuid: 907d7914858242c8a74e83b2e527244b
+              name: '{#UNITNAME} - Schedule Enabled'
+              type: TRAP
+              key: 'ae200_unit.Schedule[{#KEYNAME}]'
+              delay: '0'
+              value_type: TEXT
+              trends: '0'
+              allowed_hosts: 127.0.0.1
+            - uuid: 42457ee4f36c434b8ff7ccc764d9b770
+              name: '{#UNITNAME} - Set Temperature'
+              type: TRAP
+              key: 'ae200_unit.SetTemp1[{#KEYNAME}]'
+              delay: '0'
+              value_type: FLOAT
+              allowed_hosts: 127.0.0.1
+              units: celcius
+            - uuid: ae58c144ad9b4f30a441f57832ff04dd
+              name: '{#UNITNAME} - Vent Operation Mode'
+              type: TRAP
+              key: 'ae200_unit.VentMode[{#KEYNAME}]'
+              delay: '0'
+              value_type: TEXT
+              trends: '0'
+              allowed_hosts: 127.0.0.1
+      macros:
+        - macro: '{$ICMP_LOSS_WARN}'
+          value: '20'
+        - macro: '{$ICMP_RESPONSE_TIME_WARN}'
+          value: '0.15'
+        - macro: '{$PING.IP}'

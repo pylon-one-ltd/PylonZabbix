@@ -1,0 +1,17 @@
+zabbix_export:
+  version: '7.0'
+  template_groups:
+    - uuid: bf8846d58f414cd488b718c930236658
+      name: 'Templates/Pylon Templates'
+  templates:
+    - uuid: 24f6fb16c00c4615a67108967bd6cf9f
+      template: 'Pylon APC PDU'
+      name: 'Pylon APC PDU'
+      templates:
+        - name: 'APC PDU'
+        - name: 'ICMP Ping'
+      groups:
+        - name: 'Templates/Pylon Templates'
+      tags:
+        - tag: IsUPS
+          value: 'False'

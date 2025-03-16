@@ -1,0 +1,990 @@
+zabbix_export:
+  version: '7.0'
+  template_groups:
+    - uuid: bf8846d58f414cd488b718c930236658
+      name: 'Templates/Pylon Templates'
+  templates:
+    - uuid: 6d464815f7ee4c40a31279694071b8b1
+      template: 'Pylon Eaton UPS'
+      name: 'Pylon Eaton UPS'
+      templates:
+        - name: 'ICMP Ping'
+      groups:
+        - name: 'Templates/Pylon Templates'
+      items:
+        - uuid: 13474fc374bb4838b92f75c707b69dfb
+          name: 'Temperature Units'
+          type: SNMP_AGENT
+          snmp_oid: .1.3.6.1.4.1.534.6.8.1.2.5.0
+          key: temperatureUnit.0
+          delay: 1d
+          history: 1w
+          trends: '0'
+          description: 'The configured temperature unit'
+          valuemap:
+            name: TemperatureUnitType
+          tags:
+            - tag: component
+              value: UPS
+        - uuid: beaf4baf09744b0f8b9369822eb7b2f9
+          name: 'Battery Capacity'
+          type: SNMP_AGENT
+          snmp_oid: .1.3.6.1.4.1.534.1.2.4.0
+          key: xupsBatCapacity.0
+          history: 90d
+          units: '%'
+          description: 'The current capacity of the battery in the UPS, as a percentage'
+          tags:
+            - tag: component
+              value: battery
+        - uuid: ac1e55413d6c4954b1012bc534718fd8
+          name: 'Battery Status'
+          type: SNMP_AGENT
+          snmp_oid: .1.3.6.1.4.1.534.1.2.5.0
+          key: xupsBatteryAbmStatus.0
+          delay: 10s
+          history: 90d
+          description: 'The current status of the battery. This will indicate if the battery is charged, being tested, or in another state that may indicate a problem'
+          valuemap:
+            name: xupsBatteryAbmStatus
+          tags:
+            - tag: component
+              value: battery
+          triggers:
+            - uuid: 1f892082aded490e9d883487b76dc71a
+              expression: 'last(/Pylon Eaton UPS/xupsBatteryAbmStatus.0)<3 or last(/Pylon Eaton UPS/xupsBatteryAbmStatus.0)>4'
+              name: 'UPS battery state is not resting'
+              opdata: 'Value: {ITEM.LASTVALUE1}'
+              priority: INFO
+              description: 'The UPS battery state is not the expected value of batteryResting(4) or batteryFloating(3). The UPS may be performing a battery test, or charging from a previous power outage event'
+              dependencies:
+                - name: 'Output load not on utility'
+                  expression: 'last(/Pylon Eaton UPS/xupsOutputSource.0)<>3'
+                - name: 'Unavailable by ICMP ping'
+                  expression: 'max(/Pylon Eaton UPS/icmpping,#3)=0'
+              tags:
+                - tag: component
+                  value: power
+        - uuid: eac21b4eedbf43768bf5cf4ff96c2ef6
+          name: 'Battery Aged'
+          type: SNMP_AGENT
+          snmp_oid: .1.3.6.1.4.1.534.1.2.9.0
+          key: xupsBatteryAged.0
+          delay: 1h
+          history: 1w
+          trends: '0'
+          description: 'Indicates if the battery is over the recommended age'
+          valuemap:
+            name: xupsAlarmEventKind
+          tags:
+            - tag: component
+              value: battery
+          triggers:
+            - uuid: 331a8225ad984eee82b1909d105858e0
+              expression: 'last(/Pylon Eaton UPS/xupsBatteryAged.0)<>2'
+              name: 'UPS battery is over-aged and due replacement'
+              priority: WARNING
+              description: 'The UPS is indicating that the battery is due replacement'
+              dependencies:
+                - name: 'Unavailable by ICMP ping'
+                  expression: 'max(/Pylon Eaton UPS/icmpping,#3)=0'
+              tags:
+                - tag: component
+                  value: power
+        - uuid: bf0a0a0cbfb04568b98c90c584157593
+          name: 'Battery Failure'
+          type: SNMP_AGENT
+          snmp_oid: .1.3.6.1.4.1.534.1.2.7.0
+          key: xupsBatteryFailure.0
+          delay: 1h
+          history: 1w
+          trends: '0'
+          description: 'Indicates if a battery fault is detected, or battery tests have failed'
+          valuemap:
+            name: xupsAlarmEventKind
+          tags:
+            - tag: component
+              value: battery
+          triggers:
+            - uuid: 2baa2b499db440709ddd761612307d00
+              expression: 'last(/Pylon Eaton UPS/xupsBatteryFailure.0)<>2'
+              name: 'UPS battery has failed'
+              priority: HIGH
+              description: 'The UPS is indicating that the battery has failed'
+              dependencies:
+                - name: 'Unavailable by ICMP ping'
+                  expression: 'max(/Pylon Eaton UPS/icmpping,#3)=0'
+              tags:
+                - tag: component
+                  value: power
+        - uuid: d0e0fe1b06ac448d9a2cd5dbc3450db8
+          name: 'Battery Last Replaced Date'
+          type: SNMP_AGENT
+          snmp_oid: .1.3.6.1.4.1.534.1.2.6.0
+          key: xupsBatteryLastReplacedDate.0
+          delay: 1d
+          history: 1w
+          value_type: TEXT
+          trends: '0'
+          description: 'The date, as provided by the UPS, that the battery was last replaced, if available (Generally returned in non-standard format, mm/dd/yyyy)'
+          tags:
+            - tag: component
+              value: battery
+        - uuid: 8ae20deb475341b183ab252556647cb9
+          name: 'Battery Not Present'
+          type: SNMP_AGENT
+          snmp_oid: .1.3.6.1.4.1.534.1.2.8.0
+          key: xupsBatteryNotPresent.0
+          delay: 1h
+          history: 1w
+          trends: '0'
+          description: 'Indicates if a battery is not detected or not present'
+          valuemap:
+            name: xupsAlarmEventKind
+          tags:
+            - tag: component
+              value: battery
+          triggers:
+            - uuid: d224121dc31e4e75b6abcb3d23ee9e66
+              expression: 'last(/Pylon Eaton UPS/xupsBatteryNotPresent.0)<>2'
+              name: 'UPS battery is missing'
+              priority: HIGH
+              description: 'The UPS is indicating that the battery is missing'
+              dependencies:
+                - name: 'Unavailable by ICMP ping'
+                  expression: 'max(/Pylon Eaton UPS/icmpping,#3)=0'
+              tags:
+                - tag: component
+                  value: power
+        - uuid: 20b4bdbe5133450bb6fd66b78bfbb551
+          name: 'Battery Time Remaining'
+          type: SNMP_AGENT
+          snmp_oid: .1.3.6.1.4.1.534.1.2.1.0
+          key: xupsBatTimeRemaining.0
+          history: 90d
+          units: s
+          description: 'The amount of UPS run time remaining. If the UPS is currently not using the battery as the power source, this will reflect the maximum estimated run-time based on the current load'
+          tags:
+            - tag: component
+              value: battery
+        - uuid: f107a57a6ab8467dbebd88aa53a44078
+          name: 'Battery Voltage'
+          type: SNMP_AGENT
+          snmp_oid: .1.3.6.1.4.1.534.1.2.2.0
+          key: xupsBatVoltage.0
+          delay: 10m
+          history: 90d
+          units: V
+          description: 'The current voltage of the battery'
+          tags:
+            - tag: component
+              value: battery
+        - uuid: 17f3304e64394bddab6174c8e2cf0fc6
+          name: 'Configured Input Voltage'
+          type: SNMP_AGENT
+          snmp_oid: .1.3.6.1.4.1.534.1.10.2.0
+          key: xupsConfigInputVoltage.0
+          delay: 1d
+          history: 1w
+          trends: '0'
+          units: V
+          description: 'Configured Input Voltage'
+          tags:
+            - tag: component
+              value: UPS
+        - uuid: 2456e78adf194e48a6784976d563fb64
+          name: 'Configured Output Frequency'
+          type: SNMP_AGENT
+          snmp_oid: .1.3.6.1.4.1.534.1.10.4.0
+          key: xupsConfigOutputFreq.0
+          delay: 1d
+          history: 1w
+          value_type: FLOAT
+          trends: '0'
+          units: Hz
+          description: 'Configured Output Frequency'
+          preprocessing:
+            - type: MULTIPLIER
+              parameters:
+                - '0.1'
+          tags:
+            - tag: component
+              value: UPS
+        - uuid: 0d3eb1e8cc2e46b69637b55998d0a1ac
+          name: 'Configured Output Voltage'
+          type: SNMP_AGENT
+          snmp_oid: .1.3.6.1.4.1.534.1.10.1.0
+          key: xupsConfigOutputVoltage.0
+          delay: 1d
+          history: 1w
+          trends: '0'
+          units: V
+          description: 'Configured Output Voltage'
+          tags:
+            - tag: component
+              value: UPS
+        - uuid: f029928300fd4ac990ca7483acd2c9d7
+          name: 'Maximum Output Wattage'
+          type: SNMP_AGENT
+          snmp_oid: .1.3.6.1.4.1.534.1.10.3.0
+          key: xupsConfigOutputWatts.0
+          delay: 1d
+          history: 1w
+          trends: '0'
+          units: W
+          description: 'The maximum output wattage the hardware is capable of delivering without entering into an overload state'
+          tags:
+            - tag: component
+              value: UPS
+        - uuid: 40c8f9b8c0014807a6839912bf8119dd
+          name: 'UPS Serial'
+          type: SNMP_AGENT
+          snmp_oid: .1.3.6.1.4.1.534.1.1.6.0
+          key: xupsIdent.6.0
+          delay: 1d
+          history: 1w
+          value_type: TEXT
+          trends: '0'
+          description: 'The serialof the UPS as detected by the management card'
+          tags:
+            - tag: component
+              value: UPS
+        - uuid: 86d9d840a0a644569c257ee7decaf143
+          name: 'UPS Model'
+          type: SNMP_AGENT
+          snmp_oid: .1.3.6.1.4.1.534.1.1.2.0
+          key: xupsIdentModel.0
+          delay: 1d
+          history: 1w
+          value_type: TEXT
+          trends: '0'
+          description: 'The model of the UPS as detected by the management card'
+          tags:
+            - tag: component
+              value: UPS
+        - uuid: bfe5b600c2c94b60a7dd2fcf0f621e28
+          name: 'UPS Input Frequency'
+          type: SNMP_AGENT
+          snmp_oid: .1.3.6.1.4.1.534.1.3.1.0
+          key: xupsInputFrequency.0
+          history: 90d
+          value_type: FLOAT
+          units: Hz
+          description: 'The input frequency as detected by the UPS'
+          preprocessing:
+            - type: MULTIPLIER
+              parameters:
+                - '0.1'
+          tags:
+            - tag: component
+              value: power
+        - uuid: aaa77893826e45f0ab50cd355af0f358
+          name: 'UPS Input Source'
+          type: SNMP_AGENT
+          snmp_oid: .1.3.6.1.4.1.534.1.3.5.0
+          key: xupsInputSource.0
+          delay: 10s
+          history: 1w
+          trends: '0'
+          description: 'The source of input power for the UPS'
+          valuemap:
+            name: xupsInputSource
+          tags:
+            - tag: component
+              value: power
+        - uuid: 2faf7e5bd6e04b89bbbad34512ed2f43
+          name: 'UPS Output Source'
+          type: SNMP_AGENT
+          snmp_oid: .1.3.6.1.4.1.534.1.4.5.0
+          key: xupsOutputSource.0
+          delay: 10s
+          history: 1w
+          trends: '0'
+          description: 'The source of output power for the UPS'
+          valuemap:
+            name: xupsOutputSource
+          tags:
+            - tag: component
+              value: power
+          triggers:
+            - uuid: 9e11d249b33f4d78b59d1cde0a8329da
+              expression: 'last(/Pylon Eaton UPS/xupsOutputSource.0)<>3'
+              name: 'Output load not on utility'
+              opdata: 'Value: {ITEM.LASTVALUE1}'
+              priority: HIGH
+              description: 'The power source for the ups output load is not primaryUtility(3)'
+              dependencies:
+                - name: 'Unavailable by ICMP ping'
+                  expression: 'max(/Pylon Eaton UPS/icmpping,#3)=0'
+              tags:
+                - tag: component
+                  value: power
+        - uuid: 184f5cd2b0ff4e49a7063274df1f81f4
+          name: 'Total Output Wattage'
+          type: SNMP_AGENT
+          snmp_oid: .1.3.6.1.4.1.534.1.4.9.3.0
+          key: xupsOutputTotalWatts.0
+          delay: 10s
+          history: 90d
+          units: W
+          description: 'The total output wattage, combined from all phases, as reported by the UPS'
+          tags:
+            - tag: component
+              value: UPS
+        - uuid: 73cf4102698b41f4aa80b4c4030edcd9
+          name: 'SNMP agent availability'
+          type: INTERNAL
+          key: 'zabbix[host,snmp,available]'
+          history: 7d
+          description: |
+            Availability of SNMP checks on the host. The value of this item corresponds to availability icons in the host list.
+            Possible value:
+            0 - not available
+            1 - available
+            2 - unknown
+          tags:
+            - tag: component
+              value: health
+            - tag: component
+              value: network
+      discovery_rules:
+        - uuid: dc361a2378724abdbe2cf111f343558b
+          name: 'Environmental Probe'
+          type: SNMP_AGENT
+          snmp_oid: 'discovery[{#SNMPVALUE},.1.3.6.1.4.1.534.6.8.1.1.2.1.1]'
+          key: sensorIndex
+          delay: 1d
+          lifetime: 30d
+          enabled_lifetime_type: DISABLE_NEVER
+          description: 'Discover any connected Environmental Probes'
+          item_prototypes:
+            - uuid: e4ccec7c594d42fe96192471cfdc29b8
+              name: 'Probe {#SNMPVALUE} Humidity Probe Enabled'
+              type: SNMP_AGENT
+              snmp_oid: '.1.3.6.1.4.1.534.6.8.1.3.2.1.2.{#SNMPINDEX}.1'
+              key: 'humidityEnable[{#SNMPINDEX}]'
+              history: 1w
+              trends: '0'
+              description: 'If the Humidity Probe is enabled'
+              valuemap:
+                name: EnableType
+              tags:
+                - tag: component
+                  value: environment
+            - uuid: e9fe929a569d419096bac957325a65d7
+              name: 'Probe {#SNMPVALUE} Humidity Threshold High Critical'
+              type: SNMP_AGENT
+              snmp_oid: '.1.3.6.1.4.1.534.6.8.1.3.2.1.8.{#SNMPINDEX}.1'
+              key: 'humidityThresholdHighCritical[{#SNMPINDEX}]'
+              delay: 1d
+              history: 1w
+              value_type: FLOAT
+              trends: '0'
+              preprocessing:
+                - type: MULTIPLIER
+                  parameters:
+                    - '0.1'
+              tags:
+                - tag: component
+                  value: environment
+            - uuid: 79c3fc851b6744aa9497a6d661bc0ef0
+              name: 'Probe {#SNMPVALUE} Humidity Threshold High Warning'
+              type: SNMP_AGENT
+              snmp_oid: '.1.3.6.1.4.1.534.6.8.1.3.2.1.7.{#SNMPINDEX}.1'
+              key: 'humidityThresholdHighWarning[{#SNMPINDEX}]'
+              delay: 1d
+              history: 1w
+              value_type: FLOAT
+              trends: '0'
+              preprocessing:
+                - type: MULTIPLIER
+                  parameters:
+                    - '0.1'
+              tags:
+                - tag: component
+                  value: environment
+            - uuid: ce7f8d9ef41c4e38a709c86684f29fbe
+              name: 'Probe {#SNMPVALUE} Humidity Threshold Low Critical'
+              type: SNMP_AGENT
+              snmp_oid: '.1.3.6.1.4.1.534.6.8.1.3.2.1.6.{#SNMPINDEX}.1'
+              key: 'humidityThresholdLowCritical[{#SNMPINDEX}]'
+              delay: 1d
+              history: 1w
+              value_type: FLOAT
+              trends: '0'
+              preprocessing:
+                - type: MULTIPLIER
+                  parameters:
+                    - '0.1'
+              tags:
+                - tag: component
+                  value: environment
+            - uuid: 4d6d24e7d0d14e0c8657727671380ab4
+              name: 'Probe {#SNMPVALUE} Humidity Threshold Low Warning'
+              type: SNMP_AGENT
+              snmp_oid: '.1.3.6.1.4.1.534.6.8.1.3.2.1.5.{#SNMPINDEX}.1'
+              key: 'humidityThresholdLowWarning[{#SNMPINDEX}]'
+              delay: 1d
+              history: 1w
+              value_type: FLOAT
+              trends: '0'
+              preprocessing:
+                - type: MULTIPLIER
+                  parameters:
+                    - '0.1'
+              tags:
+                - tag: component
+                  value: environment
+            - uuid: 13128aeb41ab476b82d964d33e796cf3
+              name: 'Probe {#SNMPVALUE} Humidity'
+              type: SNMP_AGENT
+              snmp_oid: '.1.3.6.1.4.1.534.6.8.1.3.3.1.3.{#SNMPINDEX}.1'
+              key: 'humidityValue[{#SNMPINDEX}]'
+              delay: 10s
+              history: 90d
+              value_type: FLOAT
+              preprocessing:
+                - type: MULTIPLIER
+                  parameters:
+                    - '0.1'
+              tags:
+                - tag: component
+                  value: environment
+            - uuid: 70c34c22d0c54f50b95d284043f0fb8d
+              name: 'Probe {#SNMPVALUE} Sensor Connectivity'
+              type: SNMP_AGENT
+              snmp_oid: '.1.3.6.1.4.1.534.6.8.1.1.2.1.3.{#SNMPINDEX}'
+              key: 'sensorConnectionType[{#SNMPINDEX}]'
+              history: 1w
+              trends: '0'
+              description: 'The connection status of the sensor'
+              valuemap:
+                name: ProbeConnectionType
+              tags:
+                - tag: component
+                  value: environment
+            - uuid: c4f241101ad547298672234fb5c2731e
+              name: 'Probe {#SNMPVALUE} Name'
+              type: SNMP_AGENT
+              snmp_oid: '.1.3.6.1.4.1.534.6.8.1.1.3.1.1.{#SNMPINDEX}'
+              key: 'sensorName[{#SNMPINDEX}]'
+              delay: 1d
+              history: 1w
+              value_type: TEXT
+              trends: '0'
+              description: 'The name defined for the detected sensor probe'
+              tags:
+                - tag: component
+                  value: environment
+            - uuid: 2e86f2a077414370b133505f2768c964
+              name: 'Probe {#SNMPVALUE} Sensor Status'
+              type: SNMP_AGENT
+              snmp_oid: '.1.3.6.1.4.1.534.6.8.1.1.4.1.1.{#SNMPINDEX}'
+              key: 'sensorStatus[{#SNMPINDEX}]'
+              history: 1w
+              trends: '0'
+              description: 'The connection status of the sensor'
+              valuemap:
+                name: CommunicationStatus
+              tags:
+                - tag: component
+                  value: environment
+            - uuid: 17ea67ab2f95433281482605091b4b3f
+              name: 'Probe {#SNMPVALUE} Temperature Probe Enabled'
+              type: SNMP_AGENT
+              snmp_oid: '.1.3.6.1.4.1.534.6.8.1.2.2.1.2.{#SNMPINDEX}.1'
+              key: 'temperatureEnable[{#SNMPINDEX}]'
+              history: 1w
+              trends: '0'
+              description: 'If the Temperature Probe is enabled'
+              valuemap:
+                name: EnableType
+              tags:
+                - tag: component
+                  value: environment
+            - uuid: d6bcd5e94d6247058f79d00b82d91e75
+              name: 'Probe {#SNMPVALUE} Temp Threshold High Critical'
+              type: SNMP_AGENT
+              snmp_oid: '.1.3.6.1.4.1.534.6.8.1.2.2.1.8.{#SNMPINDEX}.1'
+              key: 'temperatureThresholdHighCritical[{#SNMPINDEX}]'
+              delay: 1d
+              history: 1w
+              value_type: FLOAT
+              trends: '0'
+              preprocessing:
+                - type: MULTIPLIER
+                  parameters:
+                    - '0.1'
+              tags:
+                - tag: component
+                  value: environment
+            - uuid: b01e7ead67d342668f895fee8d1a56ff
+              name: 'Probe {#SNMPVALUE} Temp Threshold High Warning'
+              type: SNMP_AGENT
+              snmp_oid: '.1.3.6.1.4.1.534.6.8.1.2.2.1.7.{#SNMPINDEX}.1'
+              key: 'temperatureThresholdHighWarning[{#SNMPINDEX}]'
+              delay: 1d
+              history: 1w
+              value_type: FLOAT
+              trends: '0'
+              preprocessing:
+                - type: MULTIPLIER
+                  parameters:
+                    - '0.1'
+              tags:
+                - tag: component
+                  value: environment
+            - uuid: 5e19a72a5b434b3f97e0ecf9b39ca8c7
+              name: 'Probe {#SNMPVALUE} Temp Threshold Low Critical'
+              type: SNMP_AGENT
+              snmp_oid: '.1.3.6.1.4.1.534.6.8.1.2.2.1.6.{#SNMPINDEX}.1'
+              key: 'temperatureThresholdLowCritical[{#SNMPINDEX}]'
+              delay: 1d
+              history: 1w
+              value_type: FLOAT
+              trends: '0'
+              preprocessing:
+                - type: MULTIPLIER
+                  parameters:
+                    - '0.1'
+              tags:
+                - tag: component
+                  value: environment
+            - uuid: 121def1abeae4561a6cfc85c2337fdfa
+              name: 'Probe {#SNMPVALUE} Temp Threshold Low Warning'
+              type: SNMP_AGENT
+              snmp_oid: '.1.3.6.1.4.1.534.6.8.1.2.2.1.5.{#SNMPINDEX}.1'
+              key: 'temperatureThresholdLowWarning[{#SNMPINDEX}]'
+              delay: 1d
+              history: 1w
+              value_type: FLOAT
+              trends: '0'
+              preprocessing:
+                - type: MULTIPLIER
+                  parameters:
+                    - '0.1'
+              tags:
+                - tag: component
+                  value: environment
+            - uuid: c025931c9367458c8a97b377b01047a0
+              name: 'Probe {#SNMPVALUE} Temperature'
+              type: SNMP_AGENT
+              snmp_oid: '.1.3.6.1.4.1.534.6.8.1.2.3.1.3.{#SNMPINDEX}.1'
+              key: 'temperatureValue[{#SNMPINDEX}]'
+              delay: 10s
+              history: 90d
+              value_type: FLOAT
+              preprocessing:
+                - type: MULTIPLIER
+                  parameters:
+                    - '0.1'
+              tags:
+                - tag: component
+                  value: environment
+          trigger_prototypes:
+            - uuid: af5d241d5b5044dd8cb0847fc29db5aa
+              expression: 'last(/Pylon Eaton UPS/humidityEnable[{#SNMPINDEX}])=1 and (avg(/Pylon Eaton UPS/humidityValue[{#SNMPINDEX}],1m)>=last(/Pylon Eaton UPS/humidityThresholdHighCritical[{#SNMPINDEX}]))'
+              name: 'Probe {#SNMPVALUE} Humidity Critically High'
+              opdata: 'Value: {ITEM.LASTVALUE1}'
+              priority: AVERAGE
+              description: 'Humidity reading is above the configured high critical threshold as defined by the UPS management card'
+              manual_close: 'YES'
+              dependencies:
+                - name: 'Unavailable by ICMP ping'
+                  expression: 'max(/Pylon Eaton UPS/icmpping,#3)=0'
+              tags:
+                - tag: component
+                  value: environment
+            - uuid: 770d75018c6049ef9f14b970bab43aee
+              expression: 'last(/Pylon Eaton UPS/humidityEnable[{#SNMPINDEX}])=1 and (avg(/Pylon Eaton UPS/humidityValue[{#SNMPINDEX}],1m)<=last(/Pylon Eaton UPS/humidityThresholdLowCritical[{#SNMPINDEX}]))'
+              name: 'Probe {#SNMPVALUE} Humidity Critically Low'
+              opdata: 'Value: {ITEM.LASTVALUE1}'
+              priority: AVERAGE
+              description: 'Humidity reading is below the configured low critical threshold as defined by the UPS management card'
+              manual_close: 'YES'
+              dependencies:
+                - name: 'Unavailable by ICMP ping'
+                  expression: 'max(/Pylon Eaton UPS/icmpping,#3)=0'
+              tags:
+                - tag: component
+                  value: environment
+            - uuid: 50272a43bc2c4a6b8fbbf667647a48b0
+              expression: 'last(/Pylon Eaton UPS/humidityEnable[{#SNMPINDEX}])=1 and (avg(/Pylon Eaton UPS/humidityValue[{#SNMPINDEX}],1m)>=last(/Pylon Eaton UPS/humidityThresholdHighWarning[{#SNMPINDEX}]))'
+              name: 'Probe {#SNMPVALUE} Humidity High Warning'
+              opdata: 'Value: {ITEM.LASTVALUE1}'
+              priority: WARNING
+              description: 'Humidity reading is above the configured high warning threshold as defined by the UPS management card'
+              manual_close: 'YES'
+              dependencies:
+                - name: 'Probe {#SNMPVALUE} Humidity Critically High'
+                  expression: 'last(/Pylon Eaton UPS/humidityEnable[{#SNMPINDEX}])=1 and (avg(/Pylon Eaton UPS/humidityValue[{#SNMPINDEX}],1m)>=last(/Pylon Eaton UPS/humidityThresholdHighCritical[{#SNMPINDEX}]))'
+                - name: 'Unavailable by ICMP ping'
+                  expression: 'max(/Pylon Eaton UPS/icmpping,#3)=0'
+              tags:
+                - tag: component
+                  value: environment
+            - uuid: 1e8381c917b54a87862f3c33c0b8dd1b
+              expression: 'last(/Pylon Eaton UPS/humidityEnable[{#SNMPINDEX}])=1 and (avg(/Pylon Eaton UPS/humidityValue[{#SNMPINDEX}],1m)<=last(/Pylon Eaton UPS/humidityThresholdLowWarning[{#SNMPINDEX}]))'
+              name: 'Probe {#SNMPVALUE} Humidity Low Warning'
+              opdata: 'Value: {ITEM.LASTVALUE1}'
+              priority: WARNING
+              description: 'Humidity reading is below the configured low warning threshold as defined by the UPS management card'
+              manual_close: 'YES'
+              dependencies:
+                - name: 'Probe {#SNMPVALUE} Humidity Critically Low'
+                  expression: 'last(/Pylon Eaton UPS/humidityEnable[{#SNMPINDEX}])=1 and (avg(/Pylon Eaton UPS/humidityValue[{#SNMPINDEX}],1m)<=last(/Pylon Eaton UPS/humidityThresholdLowCritical[{#SNMPINDEX}]))'
+                - name: 'Unavailable by ICMP ping'
+                  expression: 'max(/Pylon Eaton UPS/icmpping,#3)=0'
+              tags:
+                - tag: component
+                  value: environment
+            - uuid: 8d630e02c2c54f3987761ef8d13a1cbe
+              expression: 'last(/Pylon Eaton UPS/temperatureEnable[{#SNMPINDEX}])=1 and (avg(/Pylon Eaton UPS/temperatureValue[{#SNMPINDEX}],1m)>=last(/Pylon Eaton UPS/temperatureThresholdHighCritical[{#SNMPINDEX}]))'
+              name: 'Probe {#SNMPVALUE} Temperature Critically High'
+              opdata: 'Value: {ITEM.LASTVALUE1}'
+              priority: AVERAGE
+              description: 'Temperature reading is above the configured high critical threshold as defined by the UPS management card'
+              manual_close: 'YES'
+              dependencies:
+                - name: 'Unavailable by ICMP ping'
+                  expression: 'max(/Pylon Eaton UPS/icmpping,#3)=0'
+              tags:
+                - tag: component
+                  value: environment
+            - uuid: 1ff599085de54355952e68454257993a
+              expression: 'last(/Pylon Eaton UPS/temperatureEnable[{#SNMPINDEX}])=1 and (avg(/Pylon Eaton UPS/temperatureValue[{#SNMPINDEX}],1m)<=last(/Pylon Eaton UPS/temperatureThresholdLowCritical[{#SNMPINDEX}]))'
+              name: 'Probe {#SNMPVALUE} Temperature Critically Low'
+              opdata: 'Value: {ITEM.LASTVALUE1}'
+              priority: AVERAGE
+              description: 'Temperature reading is below the configured low critical threshold as defined by the UPS management card'
+              manual_close: 'YES'
+              dependencies:
+                - name: 'Unavailable by ICMP ping'
+                  expression: 'max(/Pylon Eaton UPS/icmpping,#3)=0'
+              tags:
+                - tag: component
+                  value: environment
+            - uuid: aeaa958a6b2c4170b2ae260fd5a80bcf
+              expression: 'last(/Pylon Eaton UPS/temperatureEnable[{#SNMPINDEX}])=1 and (avg(/Pylon Eaton UPS/temperatureValue[{#SNMPINDEX}],1m)>=last(/Pylon Eaton UPS/temperatureThresholdHighWarning[{#SNMPINDEX}]))'
+              name: 'Probe {#SNMPVALUE} Temperature High Warning'
+              opdata: 'Value: {ITEM.LASTVALUE1}'
+              priority: WARNING
+              description: 'Temperature reading is above the configured high warning threshold as defined by the UPS management card'
+              manual_close: 'YES'
+              dependencies:
+                - name: 'Probe {#SNMPVALUE} Temperature Critically High'
+                  expression: 'last(/Pylon Eaton UPS/temperatureEnable[{#SNMPINDEX}])=1 and (avg(/Pylon Eaton UPS/temperatureValue[{#SNMPINDEX}],1m)>=last(/Pylon Eaton UPS/temperatureThresholdHighCritical[{#SNMPINDEX}]))'
+                - name: 'Unavailable by ICMP ping'
+                  expression: 'max(/Pylon Eaton UPS/icmpping,#3)=0'
+              tags:
+                - tag: component
+                  value: environment
+            - uuid: 0f4c0130c1e84d1faebcf270206ddfc1
+              expression: 'last(/Pylon Eaton UPS/temperatureEnable[{#SNMPINDEX}])=1 and (avg(/Pylon Eaton UPS/temperatureValue[{#SNMPINDEX}],1m)<=last(/Pylon Eaton UPS/temperatureThresholdLowWarning[{#SNMPINDEX}]))'
+              name: 'Probe {#SNMPVALUE} Temperature Low Warning'
+              opdata: 'Value: {ITEM.LASTVALUE1}'
+              priority: WARNING
+              description: 'Temperature reading is below the configured low warning threshold as defined by the UPS management card'
+              manual_close: 'YES'
+              dependencies:
+                - name: 'Probe {#SNMPVALUE} Temperature Critically Low'
+                  expression: 'last(/Pylon Eaton UPS/temperatureEnable[{#SNMPINDEX}])=1 and (avg(/Pylon Eaton UPS/temperatureValue[{#SNMPINDEX}],1m)<=last(/Pylon Eaton UPS/temperatureThresholdLowCritical[{#SNMPINDEX}]))'
+                - name: 'Unavailable by ICMP ping'
+                  expression: 'max(/Pylon Eaton UPS/icmpping,#3)=0'
+              tags:
+                - tag: component
+                  value: environment
+        - uuid: 64532487ba2f4aff8ff0ccd17b9ac14c
+          name: 'Input Phase'
+          type: SNMP_AGENT
+          snmp_oid: 'discovery[{#SNMPVALUE},.1.3.6.1.4.1.534.1.3.4.1.1]'
+          key: xupsInputEntry
+          delay: 1d
+          lifetime: 30d
+          enabled_lifetime_type: DISABLE_NEVER
+          description: 'Discover Input Phases'
+          item_prototypes:
+            - uuid: 6733636a1af941f4944182d94f796ae6
+              name: 'Phase {#SNMPVALUE} Input Current'
+              type: SNMP_AGENT
+              snmp_oid: '.1.3.6.1.4.1.534.1.3.4.1.3.{#SNMPINDEX}'
+              key: 'xupsInputCurrent[{#SNMPINDEX}]'
+              history: 90d
+              units: A
+              tags:
+                - tag: component
+                  value: power
+            - uuid: 39b7fe64b8e54023af6b4cc385d23027
+              name: 'Phase {#SNMPVALUE} Input Name'
+              type: SNMP_AGENT
+              snmp_oid: '.1.3.6.1.4.1.534.1.3.4.1.6.{#SNMPINDEX}'
+              key: 'xupsInputName[{#SNMPINDEX}]'
+              delay: 1d
+              history: 1w
+              value_type: TEXT
+              trends: '0'
+              tags:
+                - tag: component
+                  value: power
+            - uuid: 2c23a3abc24c494ab1d4eccf13480886
+              name: 'Phase {#SNMPVALUE} Input Voltage'
+              type: SNMP_AGENT
+              snmp_oid: '.1.3.6.1.4.1.534.1.3.4.1.2.{#SNMPINDEX}'
+              key: 'xupsInputVoltage[{#SNMPINDEX}]'
+              delay: 10s
+              history: 90d
+              units: V
+              tags:
+                - tag: component
+                  value: power
+          trigger_prototypes:
+            - uuid: 35ccfd0902b74327be5fc98be65baba8
+              expression: |
+                avg(/Pylon Eaton UPS/xupsInputVoltage[{#SNMPINDEX}],1m)>=
+                (last(/Pylon Eaton UPS/xupsConfigInputVoltage.0)+{$UPS_VOLTAGEDEVIATION})
+              name: 'Phase {#SNMPVALUE} Input Voltage High'
+              opdata: 'Value: {ITEM.LASTVALUE1}'
+              priority: AVERAGE
+              description: 'Input voltage for phase above configured input voltage minus deviation in macro configuration'
+              dependencies:
+                - name: 'Unavailable by ICMP ping'
+                  expression: 'max(/Pylon Eaton UPS/icmpping,#3)=0'
+              tags:
+                - tag: component
+                  value: power
+            - uuid: 05fc7ca60932484982db0150a31ae2bb
+              expression: |
+                avg(/Pylon Eaton UPS/xupsInputVoltage[{#SNMPINDEX}],1m)<=
+                (last(/Pylon Eaton UPS/xupsConfigInputVoltage.0)-{$UPS_VOLTAGEDEVIATION})
+              name: 'Phase {#SNMPVALUE} Input Voltage Low'
+              opdata: 'Value: {ITEM.LASTVALUE1}'
+              priority: AVERAGE
+              description: 'Input voltage for phase below configured input voltage minus deviation in macro configuration'
+              dependencies:
+                - name: 'Unavailable by ICMP ping'
+                  expression: 'max(/Pylon Eaton UPS/icmpping,#3)=0'
+              tags:
+                - tag: component
+                  value: power
+        - uuid: 21bdfbbfc86f419597f1cc230242f0d2
+          name: 'Output Phase'
+          type: SNMP_AGENT
+          snmp_oid: 'discovery[{#SNMPVALUE},.1.3.6.1.4.1.534.1.4.4.1.1]'
+          key: xupsOutputEntry
+          delay: 1d
+          lifetime: 30d
+          enabled_lifetime_type: DISABLE_NEVER
+          description: 'Discover Output Phases'
+          item_prototypes:
+            - uuid: d2af1c1cf1ec4af59637f10e014c4fc6
+              name: 'Phase {#SNMPVALUE} Output Current'
+              type: SNMP_AGENT
+              snmp_oid: '.1.3.6.1.4.1.534.1.4.4.1.3.{#SNMPINDEX}'
+              key: 'xupsOutputCurrent[{#SNMPINDEX}]'
+              history: 90d
+              units: A
+              description: 'Output load current, in amps'
+              tags:
+                - tag: component
+                  value: power
+            - uuid: 3147c6f0010f4fdeb84308af4a085342
+              name: 'Phase {#SNMPVALUE} Output Name'
+              type: SNMP_AGENT
+              snmp_oid: '.1.3.6.1.4.1.534.1.4.4.1.6.{#SNMPINDEX}'
+              key: 'xupsOutputName[{#SNMPINDEX}]'
+              delay: 1d
+              history: 1w
+              value_type: TEXT
+              trends: '0'
+              description: 'Output name, as reported by the UPS. This is normally the phase name'
+              tags:
+                - tag: component
+                  value: power
+            - uuid: 6b16fdb4923947b7b75136f68d47be50
+              name: 'Phase {#SNMPVALUE} Output Load Percentage'
+              type: SNMP_AGENT
+              snmp_oid: '.1.3.6.1.4.1.534.1.4.4.1.8.{#SNMPINDEX}'
+              key: 'xupsOutputPercentLoad[{#SNMPINDEX}]'
+              history: 90d
+              units: '%'
+              description: 'The current percentage of the output load, compared to the maximum output load deliverable by this UPS'
+              tags:
+                - tag: component
+                  value: power
+            - uuid: 57c4f251668c464d8650d06fb31686b1
+              name: 'Phase {#SNMPVALUE} Output Voltage'
+              type: SNMP_AGENT
+              snmp_oid: '.1.3.6.1.4.1.534.1.4.4.1.2.{#SNMPINDEX}'
+              key: 'xupsOutputVoltage[{#SNMPINDEX}]'
+              history: 90d
+              units: V
+              description: 'Output voltage for this output phase, as reported by the UPS'
+              tags:
+                - tag: component
+                  value: power
+            - uuid: 7e47035b3ccb4a3ea91392069a1ace6c
+              name: 'Phase {#SNMPVALUE} Output Watts'
+              type: SNMP_AGENT
+              snmp_oid: '.1.3.6.1.4.1.534.1.4.4.1.4.{#SNMPINDEX}'
+              key: 'xupsOutputWatts[{#SNMPINDEX}]'
+              history: 90d
+              units: W
+              description: 'Output load current, in amps'
+              tags:
+                - tag: component
+                  value: power
+      tags:
+        - tag: IsUPS
+          value: 'True'
+      macros:
+        - macro: '{$UPS_VOLTAGEDEVIATION}'
+          value: '20'
+          description: 'Trigger an alert if the input voltage deviates from the UPS configured value by this amount'
+      valuemaps:
+        - uuid: a3b25fb55cca4eaa95d9cf1c8b75b00f
+          name: CommunicationStatus
+          mappings:
+            - value: '0'
+              newvalue: unknown
+            - value: '2'
+              newvalue: communicationOK
+            - value: '3'
+              newvalue: communicationLost
+        - uuid: bac7e51b3ed4400eb85c938ef7cd7567
+          name: EnableType
+          mappings:
+            - value: '0'
+              newvalue: disabled
+            - value: '1'
+              newvalue: enabled
+        - uuid: 0d856d0883f64ec2ab8f2f3d8fa62548
+          name: ProbeConnectionType
+          mappings:
+            - value: '0'
+              newvalue: undefined
+            - value: '1'
+              newvalue: internal
+            - value: '2'
+              newvalue: wired
+            - value: '3'
+              newvalue: wireless
+        - uuid: 3e89a0faa2d24cb18a26ee91e094c9af
+          name: TemperatureUnitType
+          mappings:
+            - value: '0'
+              newvalue: tenthOfDegKelvin
+            - value: '1'
+              newvalue: tenthOfDegCelsius
+            - value: '2'
+              newvalue: tenthOfDegFarhenheit
+        - uuid: a7d2983e3a32474fa08abbaaa0ded0a4
+          name: xupsAlarmEventKind
+          mappings:
+            - value: '1'
+              newvalue: occurred
+            - value: '2'
+              newvalue: cleared
+            - value: '3'
+              newvalue: unknown
+        - uuid: 409f057aa2ff46ecb8c56b84e20b4b69
+          name: xupsBatteryAbmStatus
+          mappings:
+            - value: '1'
+              newvalue: batteryCharging
+            - value: '2'
+              newvalue: batteryDischarging
+            - value: '3'
+              newvalue: batteryFloating
+            - value: '4'
+              newvalue: batteryResting
+            - value: '5'
+              newvalue: unknown
+            - value: '6'
+              newvalue: batteryDisconnected
+            - value: '7'
+              newvalue: batteryUnderTest
+            - value: '8'
+              newvalue: checkBattery
+        - uuid: 1822063321c94b13a4ace8869d5fc8a9
+          name: xupsInputSource
+          mappings:
+            - value: '1'
+              newvalue: other
+            - value: '2'
+              newvalue: none
+            - value: '3'
+              newvalue: primaryUtility
+            - value: '4'
+              newvalue: bypassFeed
+            - value: '5'
+              newvalue: secondaryUtility
+            - value: '6'
+              newvalue: generator
+            - value: '7'
+              newvalue: flywheel
+            - value: '8'
+              newvalue: fuelcell
+        - uuid: 146ba1452e6d4f748abc7c62e6efcfd1
+          name: xupsOutputSource
+          mappings:
+            - value: '1'
+              newvalue: other
+            - value: '2'
+              newvalue: none
+            - value: '3'
+              newvalue: normal
+            - value: '4'
+              newvalue: bypass
+            - value: '5'
+              newvalue: battery
+            - value: '6'
+              newvalue: booster
+            - value: '7'
+              newvalue: reducer
+            - value: '8'
+              newvalue: parallelCapacity
+            - value: '9'
+              newvalue: parallelRedundant
+            - value: '10'
+              newvalue: highEfficiencyMode
+            - value: '11'
+              newvalue: maintenanceBypass
+  triggers:
+    - uuid: 79dee7b1f9a54269a0960d495bcbe483
+      expression: 'avg(/Pylon Eaton UPS/xupsOutputTotalWatts.0,1m)>=(last(/Pylon Eaton UPS/xupsConfigOutputWatts.0)*0.75)'
+      name: 'Output load above threshold'
+      opdata: 'Value: {ITEM.LASTVALUE1}'
+      priority: WARNING
+      description: 'Output load is above 75% of the capacity of the UPS'
+      dependencies:
+        - name: 'Output load critically high'
+          expression: 'avg(/Pylon Eaton UPS/xupsOutputTotalWatts.0,1m)>=(last(/Pylon Eaton UPS/xupsConfigOutputWatts.0)*0.90)'
+        - name: 'Unavailable by ICMP ping'
+          expression: 'max(/Pylon Eaton UPS/icmpping,#3)=0'
+      tags:
+        - tag: component
+          value: power
+    - uuid: c304dd5d9fa440098f1c79263774270f
+      expression: 'avg(/Pylon Eaton UPS/xupsOutputTotalWatts.0,1m)>=(last(/Pylon Eaton UPS/xupsConfigOutputWatts.0)*0.90)'
+      name: 'Output load critically high'
+      opdata: 'Value: {ITEM.LASTVALUE1}'
+      priority: HIGH
+      description: 'Output load is above 90% of the capacity of the UPS'
+      dependencies:
+        - name: 'Unavailable by ICMP ping'
+          expression: 'max(/Pylon Eaton UPS/icmpping,#3)=0'
+      tags:
+        - tag: component
+          value: power
+    - uuid: af6150df7174451eb373c6b6567d25e5
+      expression: 'last(/Pylon Eaton UPS/xupsBatTimeRemaining.0)<=600 and last(/Pylon Eaton UPS/xupsOutputSource.0)<>3'
+      name: 'UPS battery has less than 10 minutes of time remaining'
+      opdata: 'Value: {ITEM.LASTVALUE1}'
+      priority: AVERAGE
+      description: 'The UPS is indicating that the battery has less than 10 minutes of time remaining'
+      dependencies:
+        - name: 'Unavailable by ICMP ping'
+          expression: 'max(/Pylon Eaton UPS/icmpping,#3)=0'
+      tags:
+        - tag: component
+          value: power

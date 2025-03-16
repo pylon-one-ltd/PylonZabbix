@@ -1,0 +1,420 @@
+zabbix_export:
+  version: '7.0'
+  template_groups:
+    - uuid: bf8846d58f414cd488b718c930236658
+      name: 'Templates/Pylon Templates'
+  templates:
+    - uuid: 56064c2a9f2b4842a5a81de5361cab05
+      template: 'Pylon Cisco 9800 WLC Template'
+      name: 'Pylon Cisco 9800 WLC Template'
+      templates:
+        - name: 'Cisco IOS SNMP'
+      groups:
+        - name: 'Templates/Pylon Templates'
+      items:
+        - uuid: 0ab0686d1a474b3eb63951120bd805d5
+          name: 'Total Wireless Clients'
+          type: CALCULATED
+          key: wlan.ssid.clients-total
+          delay: 10s
+          history: 90d
+          params: 'sum(last_foreach(//wlan.ssid.clients[*]))'
+          tags:
+            - tag: component
+              value: wlan
+        - uuid: a5d9ec7c392845e2adfcca2aa7e12982
+          name: 'HA Enabled State'
+          type: TRAP
+          key: wlc.ha.enabled
+          delay: '0'
+          history: 90d
+          allowed_hosts: 127.0.0.1
+          description: 'If the WLC HA is enabled'
+          valuemap:
+            name: Boolean
+          tags:
+            - tag: component
+              value: ha
+          triggers:
+            - uuid: 2377d167ba8f4517b284faebcb10f38b
+              expression: 'last(/Pylon Cisco 9800 WLC Template/wlc.ha.enabled)=0'
+              name: 'HA Service Enabled'
+              opdata: 'Current State: {ITEM.LASTVALUE1}'
+              priority: INFO
+              description: 'It is recommended that all controllers operate in a HA state. If platform HA is not enabled, this informational trigger will be displayed.'
+              dependencies:
+                - name: 'Unavailable by ICMP ping'
+                  expression: 'max(/Pylon Cisco 9800 WLC Template/icmpping,#3)=0'
+              tags:
+                - tag: scope
+                  value: ha
+        - uuid: 7e211bae25ac433ea93f20f6cf9941e7
+          name: 'HA Switchover Occured'
+          type: TRAP
+          key: wlc.ha.has_switchover_occured
+          delay: '0'
+          history: 90d
+          allowed_hosts: 127.0.0.1
+          description: 'If the controller has reported a recent HA failover event'
+          valuemap:
+            name: Boolean
+          tags:
+            - tag: component
+              value: ha
+        - uuid: 0512cf055cb849a9bb0bd2bbc9e3ec08
+          name: 'HA Failover Time'
+          type: TRAP
+          key: wlc.ha.last_switchover
+          delay: '0'
+          history: 90d
+          allowed_hosts: 127.0.0.1
+          units: unixtime
+          description: 'The time provided by the controller for the last failover event'
+          tags:
+            - tag: component
+              value: ha
+          triggers:
+            - uuid: 79aac0bd2847406c9fbd8a6d1c93cf04
+              expression: 'fuzzytime(/Pylon Cisco 9800 WLC Template/wlc.ha.last_switchover,14400)=1'
+              name: 'Controller HA failover within last 4 hours'
+              opdata: 'Failover occurred at: {ITEM.LASTVALUE1}'
+              priority: WARNING
+              description: 'The time returned by the controller for the last failover incident is within 4 hours of the zabbix server time. This indicates, assuming no time differential between Zabbix and the WLC time, that a failover may have occurred.'
+              dependencies:
+                - name: 'HA Service Enabled'
+                  expression: 'last(/Pylon Cisco 9800 WLC Template/wlc.ha.enabled)=0'
+                - name: 'Primary Controller slot changed'
+                  expression: 'last(/Pylon Cisco 9800 WLC Template/wlc.ha.primary_slot,#1)<>last(/Pylon Cisco 9800 WLC Template/wlc.ha.primary_slot,#2)'
+              tags:
+                - tag: scope
+                  value: ha
+        - uuid: 42802956ffe040ff87675860a34ec6b5
+          name: 'HA Failover Reason'
+          type: TRAP
+          key: wlc.ha.last_switchover_reason
+          delay: '0'
+          history: 90d
+          value_type: TEXT
+          trends: '0'
+          allowed_hosts: 127.0.0.1
+          description: 'The reason provided for the controller for the last HA failover'
+          tags:
+            - tag: component
+              value: ha
+        - uuid: a068866969524e46be47d03b364baa71
+          name: 'HA Operation Mode'
+          type: TRAP
+          key: wlc.ha.mode
+          delay: '0'
+          history: 90d
+          value_type: TEXT
+          trends: '0'
+          allowed_hosts: 127.0.0.1
+          description: 'The current mode of the HA cluster'
+          tags:
+            - tag: component
+              value: ha
+          triggers:
+            - uuid: 0f9be470cc5645488e1f6dff472136d3
+              expression: 'last(/Pylon Cisco 9800 WLC Template/wlc.ha.mode)<>"SSO"'
+              name: 'HA mode not in SSO state'
+              opdata: 'Current State: {ITEM.LASTVALUE1}'
+              priority: WARNING
+              description: 'In normal operation, the controller cluster should advertise the HA state "SSO". If any other value is returned, this may indicate an abnormal operating condition'
+              dependencies:
+                - name: 'HA Service Enabled'
+                  expression: 'last(/Pylon Cisco 9800 WLC Template/wlc.ha.enabled)=0'
+              tags:
+                - tag: scope
+                  value: ha
+        - uuid: 1ec5e5105c8842e9b1fc2cefa5a676fd
+          name: 'HA Current Active Slot'
+          type: TRAP
+          key: wlc.ha.primary_slot
+          delay: '0'
+          history: 90d
+          allowed_hosts: 127.0.0.1
+          description: 'The current slot that is holding the primary HA role'
+          tags:
+            - tag: component
+              value: ha
+          triggers:
+            - uuid: f1800ebe27c540e08c98a62f0aac8d56
+              expression: 'last(/Pylon Cisco 9800 WLC Template/wlc.ha.primary_slot,#1)<>last(/Pylon Cisco 9800 WLC Template/wlc.ha.primary_slot,#2)'
+              recovery_mode: NONE
+              name: 'Primary Controller slot changed'
+              opdata: 'Previous Slot: {ITEM.LASTVALUE2}, Current Slot: {ITEM.LASTVALUE1}'
+              priority: HIGH
+              description: |
+                The slot reported by a previous check no longer matches the slot reported during the latest data fetch from the controller cluster. This means the controller has failed over.
+                
+                This problem will remain active until the alert is manually closed.
+              manual_close: 'YES'
+              dependencies:
+                - name: 'HA Service Enabled'
+                  expression: 'last(/Pylon Cisco 9800 WLC Template/wlc.ha.enabled)=0'
+              tags:
+                - tag: scope
+                  value: ha
+        - uuid: 0a7710a9e9b94dc2ae348d0943b834f5
+          name: 'HA State of Primary Unit'
+          type: TRAP
+          key: wlc.ha.primary_state
+          delay: '0'
+          history: 90d
+          value_type: TEXT
+          trends: '0'
+          allowed_hosts: 127.0.0.1
+          description: 'The current slot that is holding the primary HA role'
+          tags:
+            - tag: component
+              value: ha
+          triggers:
+            - uuid: 294ed56b5ab647729285c16ae25e524b
+              expression: 'last(/Pylon Cisco 9800 WLC Template/wlc.ha.primary_state)<>"db-rf-active"'
+              name: 'Primary Controller not in HA active state'
+              opdata: 'Current State: {ITEM.LASTVALUE1}'
+              priority: WARNING
+              description: 'In normal operation, the primary controller should advertise the HA state "db-rf-active". If any other value is returned, this may indicate an abnormal operating condition'
+              dependencies:
+                - name: 'HA Service Enabled'
+                  expression: 'last(/Pylon Cisco 9800 WLC Template/wlc.ha.enabled)=0'
+              tags:
+                - tag: scope
+                  value: ha
+        - uuid: 54b060f4794c4af99826bab3c3c442ff
+          name: 'HA State of Secondary Unit'
+          type: TRAP
+          key: wlc.ha.secondary_state
+          delay: '0'
+          history: 90d
+          value_type: TEXT
+          trends: '0'
+          allowed_hosts: 127.0.0.1
+          description: 'The current slot that is holding the secondary HA role'
+          tags:
+            - tag: component
+              value: ha
+          triggers:
+            - uuid: 405b8b0e9b824ea5aacfff9136a2282e
+              expression: 'last(/Pylon Cisco 9800 WLC Template/wlc.ha.secondary_state)<>"db-rf-standby-hot"'
+              name: 'Secondary Controller not in HA standby state'
+              opdata: 'Current State: {ITEM.LASTVALUE1}'
+              priority: WARNING
+              description: 'In normal operation, the secondary controller should advertise the HA state "db-rf-standby-hot". If any other value is returned, this may indicate an abnormal operating condition'
+              dependencies:
+                - name: 'HA Service Enabled'
+                  expression: 'last(/Pylon Cisco 9800 WLC Template/wlc.ha.enabled)=0'
+              tags:
+                - tag: scope
+                  value: ha
+      discovery_rules:
+        - uuid: 5b6cefcfedcd49a6ba2565e291ef0129
+          name: 'WLAN Telemetry - Access Point'
+          type: TRAP
+          key: wlan.access_point
+          delay: '0'
+          allowed_hosts: 127.0.0.1
+          lifetime: 1d
+          enabled_lifetime_type: DISABLE_NEVER
+          description: 'Discovery of keys from 9800 Monitoring Telemetry processing script'
+          item_prototypes:
+            - uuid: 9da6b288fe074b90b7a45e30034a7ab4
+              name: 'AP {#KEYNAME} - Associated Clients'
+              type: TRAP
+              key: 'wlan.access_point.clients[{#KEYNAME}]'
+              delay: '0'
+              history: 90d
+              trends: '0'
+              allowed_hosts: 127.0.0.1
+              units: Clients
+              description: 'Total associated clients to this access point'
+              tags:
+                - tag: Cisco-PolicyTags
+                  value: '{#POLICYTAGS}'
+                - tag: component
+                  value: wlan
+        - uuid: 2fa746579a844746a9e7b9c982f5e742
+          name: 'WLAN Telemetry - PHY Type'
+          type: TRAP
+          key: wlan.phy_type
+          delay: '0'
+          allowed_hosts: 127.0.0.1
+          lifetime: 1d
+          enabled_lifetime_type: DISABLE_NEVER
+          description: 'Discovery of keys from 9800 Monitoring Telemetry processing script'
+          item_prototypes:
+            - uuid: f0ad3c1e756d48f2930e11a29fdf6d48
+              name: 'PHY {#KEYNAME} - Total Associated Clients'
+              type: TRAP
+              key: 'wlan.phy_type.clients[{#KEYNAME}]'
+              delay: '0'
+              history: 90d
+              trends: '0'
+              allowed_hosts: 127.0.0.1
+              units: Clients
+              description: 'Total Clients by this PHY Type'
+              tags:
+                - tag: component
+                  value: wlan
+        - uuid: 115060b2041c491ca20f492c591500aa
+          name: 'WLAN Telemetry - Policy Tag'
+          type: TRAP
+          key: wlan.policy_tag
+          delay: '0'
+          allowed_hosts: 127.0.0.1
+          lifetime: 1d
+          enabled_lifetime_type: DISABLE_NEVER
+          description: 'Discovery of keys from 9800 Monitoring Telemetry processing script'
+          item_prototypes:
+            - uuid: 6b83734f0f4f4ababbc610d64ad6ba5c
+              name: 'PT {#KEYNAME} - Associated Clients'
+              type: TRAP
+              key: 'wlan.policy_tag.clients[{#KEYNAME}]'
+              delay: '0'
+              history: 90d
+              trends: '0'
+              allowed_hosts: 127.0.0.1
+              units: Clients
+              description: 'Total associated clients to APs in this policy tag'
+              tags:
+                - tag: component
+                  value: wlan
+        - uuid: a50e5199df644029b5363643dd750763
+          name: 'WLAN Telemetry - Site Tag'
+          type: TRAP
+          key: wlan.site_tag
+          delay: '0'
+          allowed_hosts: 127.0.0.1
+          lifetime: 1d
+          enabled_lifetime_type: DISABLE_NEVER
+          description: 'Discovery of keys from 9800 Monitoring Telemetry processing script'
+          item_prototypes:
+            - uuid: 7a84bcbdc1fc4e0abc7b9dfe722f7629
+              name: 'ST {#KEYNAME} - Associated Clients'
+              type: TRAP
+              key: 'wlan.site_tag.clients[{#KEYNAME}]'
+              delay: '0'
+              history: 90d
+              trends: '0'
+              allowed_hosts: 127.0.0.1
+              units: Clients
+              description: 'Total associated clients to APs in this site tag'
+              tags:
+                - tag: component
+                  value: wlan
+        - uuid: 58dd28b663744798a2732d02260d2b0b
+          name: 'WLAN Telemetry - SSID'
+          type: TRAP
+          key: wlan.ssid
+          delay: '0'
+          allowed_hosts: 127.0.0.1
+          lifetime: 1d
+          enabled_lifetime_type: DISABLE_NEVER
+          description: 'Discovery of keys from 9800 Monitoring Telemetry processing script'
+          item_prototypes:
+            - uuid: aab002d3af604937a639f69110496dda
+              name: 'SSID {#KEYNAME} - Associated Clients'
+              type: TRAP
+              key: 'wlan.ssid.clients[{#KEYNAME}]'
+              delay: '0'
+              history: 90d
+              trends: '0'
+              allowed_hosts: 127.0.0.1
+              units: Clients
+              description: 'Total associated clients to this SSID'
+              tags:
+                - tag: Cisco-PolicyTags
+                  value: '{#POLICYTAGS}'
+                - tag: component
+                  value: wlan
+        - uuid: 553dc0bee3434edca6bebdda4fcb0472
+          name: 'WLC Telemetry - wncd Processes'
+          type: TRAP
+          key: wlc.wncd_process
+          delay: '0'
+          allowed_hosts: 127.0.0.1
+          lifetime: 1d
+          enabled_lifetime_type: DISABLE_NEVER
+          description: 'Discovery of keys from 9800 Monitoring Telemetry processing script'
+          item_prototypes:
+            - uuid: c931ff2a4fbb4cc2b57c1ca5de42e579
+              name: '{#KEYNAME} - CPU Usage'
+              type: TRAP
+              key: 'wlc.wncd_process.cpu[{#KEYNAME}]'
+              delay: '0'
+              history: 90d
+              allowed_hosts: 127.0.0.1
+              units: '%'
+              tags:
+                - tag: component
+                  value: wncd
+              trigger_prototypes:
+                - uuid: 9b659da7b2054f33b2bc4d46bd8e2414
+                  expression: 'avg(/Pylon Cisco 9800 WLC Template/wlc.wncd_process.cpu[{#KEYNAME}],3m)>={$WNCD_CRIT_CPU}'
+                  name: '{#KEYNAME} CPU usage over critical threshold'
+                  opdata: 'Current Reading: {ITEM.LASTVALUE1}'
+                  priority: HIGH
+                  description: 'The last three readings of CPU usage for this wncd process thread exceeds the defined CPU threshold for critical state. This means the process has been sustained at a high usage for 3 minutes. This may indicate a load balancing issue with site-tags, or client roaming between wncd processes.'
+                  dependencies:
+                    - name: 'Unavailable by ICMP ping'
+                      expression: 'max(/Pylon Cisco 9800 WLC Template/icmpping,#3)=0'
+                  tags:
+                    - tag: scope
+                      value: wncd
+                - uuid: 40919bfda8d54a13ae23de5f027b31f1
+                  expression: 'avg(/Pylon Cisco 9800 WLC Template/wlc.wncd_process.cpu[{#KEYNAME}],3m)>={$WNCD_WARN_CPU}'
+                  name: '{#KEYNAME} CPU usage over warning threshold'
+                  opdata: 'Current Reading: {ITEM.LASTVALUE1}'
+                  priority: AVERAGE
+                  description: 'The last three readings of CPU usage for this wncd process thread exceeds the defined CPU threshold for warning state. This means the process has been sustained at a high usage for 3 minutes. This may indicate a load balancing issue with site-tags, or client roaming between wncd processes.'
+                  dependencies:
+                    - name: 'Unavailable by ICMP ping'
+                      expression: 'max(/Pylon Cisco 9800 WLC Template/icmpping,#3)=0'
+                  tags:
+                    - tag: scope
+                      value: wncd
+            - uuid: 903543f9550546498f66bb9b6635e128
+              name: '{#KEYNAME} - Memory Usage'
+              type: TRAP
+              key: 'wlc.wncd_process.memory[{#KEYNAME}]'
+              delay: '0'
+              history: 90d
+              allowed_hosts: 127.0.0.1
+              units: '%'
+              tags:
+                - tag: component
+                  value: wncd
+            - uuid: 5162744054db4d8c916402c8b03ee633
+              name: '{#KEYNAME} - Process PID'
+              type: TRAP
+              key: 'wlc.wncd_process.pid[{#KEYNAME}]'
+              delay: '0'
+              history: 90d
+              allowed_hosts: 127.0.0.1
+              tags:
+                - tag: component
+                  value: wncd
+      tags:
+        - tag: IsUPS
+          value: 'False'
+      macros:
+        - macro: '{$NET.IF.IFNAME.NOT_MATCHES}'
+          value: '(^Vo0|^Software Loopback Interface|^NULL[0-9.]*$|^[Ll]o[0-9.]*$|^[Ss]ystem$|^Nu[0-9.]*$|^veth[0-9a-z]+$|docker[0-9]+|br-[a-z0-9]{12})'
+          description: 'Filter out loopbacks, nulls, docker veth links and docker0 bridge by default'
+        - macro: '{$TEMP_CRIT}'
+          value: '80'
+        - macro: '{$TEMP_WARN}'
+          value: '70'
+        - macro: '{$WNCD_CRIT_CPU}'
+          value: '80'
+        - macro: '{$WNCD_WARN_CPU}'
+          value: '60'
+      valuemaps:
+        - uuid: 7a34064700014b69b3265aee4ee27f94
+          name: Boolean
+          mappings:
+            - value: '0'
+              newvalue: 'False'
+            - value: '1'
+              newvalue: 'True'

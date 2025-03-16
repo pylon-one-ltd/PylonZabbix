@@ -1,0 +1,21 @@
+zabbix_export:
+  version: '7.0'
+  template_groups:
+    - uuid: bf8846d58f414cd488b718c930236658
+      name: 'Templates/Pylon Templates'
+  templates:
+    - uuid: 22b493acb72448bda2039cf61bb78377
+      template: 'Pylon Linux Template'
+      name: 'Pylon Linux Template'
+      templates:
+        - name: 'Linux by Zabbix agent'
+        - name: 'Systemd by Zabbix agent 2'
+      groups:
+        - name: 'Templates/Pylon Templates'
+      tags:
+        - tag: IsUPS
+          value: 'False'
+      macros:
+        - macro: '{$SYSTEMD.NAME.SERVICE.NOT_MATCHES}'
+          value: '(e2scrub_reap|systemd-fsck-([^.]*)|systemd-pstore).service'
+          description: 'Ignore unwanted systemd services'
