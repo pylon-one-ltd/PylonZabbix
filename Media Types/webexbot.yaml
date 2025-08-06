@@ -1,0 +1,547 @@
+zabbix_export:
+  version: '7.0'
+  media_types:
+    - name: WebexBot
+      type: WEBHOOK
+      parameters:
+        - name: alert_message
+          value: '{ALERT.MESSAGE}'
+        - name: alert_subject
+          value: '{HOST.NAME} - {ALERT.SUBJECT}'
+        - name: bot_token
+          value: BOT_TOKEN_HERE
+        - name: channel
+          value: '{ALERT.SENDTO}'
+        - name: channel_tag_name
+          value: Webex-Channel
+        - name: discovery_host_dns
+          value: '{DISCOVERY.DEVICE.DNS}'
+        - name: discovery_host_ip
+          value: '{DISCOVERY.DEVICE.IPADDRESS}'
+        - name: event_date
+          value: '{EVENT.DATE}'
+        - name: event_id
+          value: '{EVENT.ID}'
+        - name: event_nseverity
+          value: '{EVENT.NSEVERITY}'
+        - name: event_opdata
+          value: '{EVENT.OPDATA}'
+        - name: event_recovery_date
+          value: '{EVENT.RECOVERY.DATE}'
+        - name: event_recovery_time
+          value: '{EVENT.RECOVERY.TIME}'
+        - name: event_severity
+          value: '{EVENT.SEVERITY}'
+        - name: event_source
+          value: '{EVENT.SOURCE}'
+        - name: event_tags
+          value: '{EVENT.TAGSJSON}'
+        - name: event_time
+          value: '{EVENT.TIME}'
+        - name: event_update_date
+          value: '{EVENT.UPDATE.DATE}'
+        - name: event_update_status
+          value: '{EVENT.UPDATE.STATUS}'
+        - name: event_update_time
+          value: '{EVENT.UPDATE.TIME}'
+        - name: event_value
+          value: '{EVENT.VALUE}'
+        - name: host_conn
+          value: '{HOST.CONN}'
+        - name: host_name
+          value: '{HOST.NAME}'
+        - name: trigger_description
+          value: '{TRIGGER.DESCRIPTION}'
+        - name: trigger_id
+          value: '{TRIGGER.ID}'
+        - name: zabbix_url
+          value: '{$ZABBIX.URL}'
+      script: |
+        /***************************************
+         * Webex Media-Type Integration
+         * james@pylonone.com
+         ***************************************/
+        
+        if (!String.prototype.format) {
+            String.prototype.format = function() {
+                var args = arguments;
+        
+                return this.replace(/{(\d+)}/g, function(match, number) {
+                    return number in args
+                        ? args[number]
+                        : match
+                    ;
+                });
+            };
+        }
+        
+        function isEventProblem(params) {
+            return params.event_value == 1
+                && params.event_update_status == 0
+            ;
+        }
+        
+        function isEventUpdate(params) {
+            return params.event_value == 1
+                && params.event_update_status == 1
+            ;
+        }
+        
+        function isEventResolve(params) {
+            return params.event_value == 0;
+        }
+        
+        function createProblemURL(zabbix_url, triggerid, eventid, event_source) {
+            return params.zabbix_url;
+        }
+        
+        function handlerAlarm(params, webex_endpoint) {
+            var fields = {
+                roomId: params.channel,
+                text: params.alert_subject
+            };
+        
+            if (isEventProblem(params)) {
+                fields.attachments = [{
+                    contentType: "application/vnd.microsoft.card.adaptive",
+                    content: createMessage(
+                        "Attention",
+                        params.event_date,
+                        params.event_time,
+                        createProblemURL(params.zabbix_url, params.trigger_id, params.event_id, params.event_source)
+                    )
+                }];
+        
+                var resptext = req.post(webex_endpoint, JSON.stringify(fields));
+                var respcode = req.getStatus();
+                if (respcode != 200) {
+                    var respmessage = '';
+                    try {
+                        // Try to parse response
+                        var resp = JSON.parse(resptext);
+                        respmessage = 'Response code: ' + respcode + '; Response: ' + resp.message;
+                    }
+                    catch (error) {
+                        respmessage = 'Response code: ' + respcode + '; Response: ' + resptext + '; Decode: ' + error;
+                    }
+                    throw respmessage;
+                }
+        
+                var resp = JSON.parse(resptext);
+                result.tags = {
+                    ['__message_id_' + params.channel]: resp.id,
+                    ['__room_id_' + params.channel]: resp.roomId
+                };
+            }
+            else if (isEventUpdate(params)) {
+                var message_id = '';
+        
+                try {
+                    var channel_event_tags = JSON.parse(params.event_tags);
+                } catch (error) {
+                    throw 'Cannot process event tags: ' + error;
+                }
+        
+                if (Array.isArray(channel_event_tags)) {
+                    for (i in channel_event_tags) {
+                        if (channel_event_tags[i].tag.includes('__room_id_' + params.channel)) {
+                            fields.roomid = channel_event_tags[i].value;
+                            continue;
+                        }
+                        if (channel_event_tags[i].tag.includes('__message_id_' + params.channel)) {
+                            message_id = channel_event_tags[i].value;
+                        }
+                    }
+                }
+        
+                if( message_id == '' ) {
+                    throw 'Cannot update message: invalid message_id';
+                }
+        
+                fields.attachments = [{
+                    contentType: "application/vnd.microsoft.card.adaptive",
+                    content: createMessage(
+                        "Attention",
+                        params.event_date,
+                        params.event_time,
+                        createProblemURL(params.zabbix_url, params.trigger_id, params.event_id, params.event_source)
+                    )
+                }];
+        
+                var resptext = req.put(webex_endpoint + '/' + message_id, JSON.stringify(fields))
+                var respcode = req.getStatus();
+                if (respcode != 200) {
+                    var respmessage = '';
+                    try {
+                        // Try to parse response
+                        var resp = JSON.parse(resptext);
+                        respmessage = 'Response code: ' + respcode + '; Response: ' + resp.message;
+                    }
+                    catch (error) {
+                        respmessage = 'Response code: ' + respcode + '; Response: ' + resptext + '; Decode: ' + error;
+                    }
+                    throw respmessage;
+                }
+            }
+            else if (isEventResolve(params)) {
+                var message_id = '';
+        
+                try {
+                    var channel_event_tags = JSON.parse(params.event_tags);
+                } catch (error) {
+                    throw 'Cannot process event tags: ' + error;
+                }
+        
+                if (Array.isArray(channel_event_tags)) {
+                    for (i in channel_event_tags) {
+                        if (channel_event_tags[i].tag.includes('__room_id_' + params.channel)) {
+                            fields.roomid = channel_event_tags[i].value;
+                            continue;
+                        }
+                        if (channel_event_tags[i].tag.includes('__message_id_' + params.channel)) {
+                            message_id = channel_event_tags[i].value;
+                        }
+                    }
+                }
+        
+                if( message_id == '' ) {
+                    throw 'Cannot resolve message: invalid message_id';
+                }
+        
+                params.alert_subject = 'Resolved: ' + params.alert_subject;
+                fields.attachments = [{
+                    contentType: "application/vnd.microsoft.card.adaptive",
+                    content: createMessage(
+                        "Good",
+                        params.event_date,
+                        params.event_time,
+                        createProblemURL(params.zabbix_url, params.trigger_id, params.event_id, params.event_source)
+                    )
+                }];
+        
+                var resptext = req.put(webex_endpoint + '/' + message_id, JSON.stringify(fields))
+                var respcode = req.getStatus();
+                if (respcode != 200) {
+                    var respmessage = '';
+                    try {
+                        // Try to parse response
+                        var resp = JSON.parse(resptext);
+                        respmessage = 'Response code: ' + respcode + '; Response: ' + resp.message;
+                    }
+                    catch (error) {
+                        respmessage = 'Response code: ' + respcode + '; Response: ' + resptext + '; Decode: ' + error;
+                    }
+                    throw respmessage;
+                }
+            }
+        }
+        
+        function createMessage(event_severity_color, event_date, event_time, problem_url, isShort, messageText) {
+            var message = {
+                type: "AdaptiveCard",
+                version: "1.3",
+                body: [{
+                    type: "ColumnSet",
+                    columns: [{
+                        type: "Column",
+                        width: "stretch",
+                        items: [{
+                            type: "TextBlock",
+                            text: "Monitoring Alert",
+                            weight: "Lighter",
+                            color: "Accent"
+                        },
+                        {
+                            type: "TextBlock",
+                            weight: "Bolder",
+                            text: params.alert_subject,
+                            horizontalAlignment: "Left",
+                            wrap: true,
+                            color: event_severity_color,
+                            size: "Large",
+                            spacing: "Small"
+                        }]
+                    }]
+                }]
+            };
+        
+            // Add data section
+            message.body.push({
+                type: "ColumnSet",
+                spacing: "Padding",
+                horizontalAlignment: "Center",
+                columns: [{
+                    type: "Column",
+                    width: 20,
+                    items: [{
+                        type: "TextBlock",
+                        text: "Host:",
+                        color: "Light",
+                        spacing: "Small",
+                        horizontalAlignment: "Right"
+                    },
+                    {
+                        type: "TextBlock",
+                        text: "Time:",
+                        color: "Light",
+                        spacing: "Small",
+                        horizontalAlignment: "Right"
+                    },
+                    {
+                        type: "TextBlock",
+                        text: "Severity:",
+                        color: "Light",
+                        spacing: "Small",
+                        horizontalAlignment: "Right"
+                    },
+                    {
+                        type: "TextBlock",
+                        text: "Event Data:",
+                        color: "Light",
+                        spacing: "Small",
+                        horizontalAlignment: "Right"
+                    }]
+                },
+                {
+                    type: "Column",
+                    width: 60,
+                    items: [{
+                        text: params.host_name,
+                        type: "TextBlock",
+                        color: "Light",
+                        spacing: "Small",
+                        horizontalAlignment: "Left"
+                    },
+                    {
+                        text: '{0} {1}'.format(event_date, event_time),
+                        type: "TextBlock",
+                        color: "Light",
+                        spacing: "Small",
+                        horizontalAlignment: "Left"
+                    },
+                    {
+                        text: params.event_severity,
+                        type: "TextBlock",
+                        color: "Light",
+                        spacing: "Small",
+                        horizontalAlignment: "Left"
+                    },
+                    {
+                        text: params.event_opdata,
+                        type: "TextBlock",
+                        color: "Light",
+                        spacing: "Small",
+                        horizontalAlignment: "Left"
+                    }]
+                }]
+            });
+        
+            // Add additional information
+            if (params.event_source !== '0' || params.event_update_status === '1') {
+                message.body.push({
+                    type: "TextBlock",
+                    text: "Details:",
+                    weight: "Bolder"
+                },
+                {
+                    type: "TextBlock",
+                    text: params.alert_message,
+                    wrap: true
+                });
+            }
+            else {
+                // Add trigger description
+                if (!isShort  && params.event_source === '0' && !isEventResolve(params)) {
+                    message.body.push({
+                        type: "TextBlock",
+                        text: "Additional Information:",
+                        weight: "Bolder"
+                    },
+                    {
+                        type: "TextBlock",
+                        text: params.trigger_description,
+                        wrap: true
+                    },
+                    {
+                        type: "Container",
+                        items: [{
+                            type: "ActionSet",
+                            actions: [{
+                                type: "Action.OpenUrl",
+                                title: "View Problem",
+                                url: problem_url
+                            }],
+                            horizontalAlignment: "Left",
+                            spacing: "None"
+                        }]
+                    });
+                }
+            }
+        
+            return message;
+        }
+        
+        function validateParams(params) {
+            if (typeof params.bot_token !== 'string' || params.bot_token.trim() === '') {
+                throw 'Field "bot_token" cannot be empty';
+            }
+        
+            if (typeof params.channel !== 'string' || params.channel.trim() === '') {
+                throw 'Field "channel" cannot be empty';
+            }
+        
+            if (isNaN(params.event_id)) {
+                throw 'Field "event_id" is not a number';
+            }
+        
+            if ([0, 1, 2, 3].indexOf(parseInt(params.event_source)) === -1) {
+                throw 'Incorrect "event_source" parameter given: "' + params.event_source + '".\nMust be 0-3.';
+            }
+        
+            if (params.event_source !== '0') {
+                params.event_nseverity = '0';
+                params.event_severity = 'Not classified';
+                params.event_update_status = '0';
+                params.slack_mode = 'event';
+            }
+        
+            if (params.event_source === '1' || params.event_source === '2') {
+                params.event_value = '1';
+            }
+        
+            if (params.event_source === '1') {
+                params.host_name = params.discovery_host_dns;
+                params.host_ip = params.discovery_host_ip;
+            }
+        
+            if (!~[0, 1, 2, 3, 4, 5].indexOf(parseInt(params.event_nseverity))) {
+                throw 'Incorrect "event_nseverity" parameter given: ' + params.event_nseverity + '\nMust be 0-5.';
+            }
+        
+            if (typeof params.event_severity !== 'string' || params.event_severity.trim() === '') {
+                throw 'Field "event_severity" cannot be empty';
+            }
+        
+            if (params.event_update_status !== '0' && params.event_update_status !== '1') {
+                throw 'Incorrect "event_update_status" parameter given: ' + params.event_update_status + '\nMust be 0 or 1.';
+            }
+        
+            if (params.event_value !== '0' && params.event_value !== '1') {
+                throw 'Incorrect "event_value" parameter given: ' + params.event_value + '\nMust be 0 or 1.';
+            }
+        
+            if (typeof params.host_conn !== 'string' || params.host_conn.trim() === '') {
+                throw 'Field "host_conn" cannot be empty';
+            }
+        
+            if (typeof params.host_name !== 'string' || params.host_name.trim() === '') {
+                throw 'Field "host_name" cannot be empty';
+            }
+        
+            if (isNaN(params.trigger_id) && params.event_source === '0') {
+                throw 'field "trigger_id" is not a number';
+            }
+        
+            if (typeof params.zabbix_url !== 'string' || params.zabbix_url.trim() === '') {
+                throw 'Field "zabbix_url" cannot be empty';
+            }
+        
+            if (!/^(http|https):\/\/.+/.test(params.zabbix_url)) {
+                throw 'Field "zabbix_url" must contain a schema';
+            }
+        }
+        
+        try {
+            var params = JSON.parse(value);
+        
+            // Fetch the channel name from the appropriate tag
+            if (typeof params.channel_tag_name !== 'string' || params.channel_tag_name.trim() === '') {
+                throw 'Field "channel_tag_name" cannot be empty';
+            }
+        
+            var channelParam = JSON.parse(params.event_tags).filter(function (e) { return e.tag.toLowerCase() == params.channel_tag_name.toLowerCase() });
+            if (channelParam == undefined || typeof channelParam[0].value !== 'string' ) {
+                throw 'No space set to send message to';
+            } else {
+                params.channel = channelParam[0].value;
+            }
+        
+            validateParams(params);
+            var req = new HttpRequest(),
+                result = {tags: {}};
+        
+            if (typeof params.HTTPProxy === 'string' && params.HTTPProxy.trim() !== '') {
+                req.setProxy(params.HTTPProxy);
+            }
+        
+            req.addHeader('Content-Type: application/json; charset=utf-8');
+            req.addHeader('Accept: application/json');
+            req.addHeader('Authorization: Bearer ' + params.bot_token);
+        
+            var webex_endpoint = 'https://webexapis.com/v1/messages';
+            handlerAlarm(params, webex_endpoint);
+        
+            if (params.event_source === '0') {
+                return JSON.stringify(result);
+            }
+            else {
+                return 'OK';
+            }
+        }
+        catch (error) {
+            Zabbix.log(3, '[ Webex Webhook ] Webex notification failed : ' + error);
+            throw 'Webex notification failed : ' + error;
+        }
+      process_tags: 'YES'
+      description: 'Webex Bot'
+      message_templates:
+        - event_source: TRIGGERS
+          operation_mode: PROBLEM
+          subject: 'Problem: {EVENT.NAME}'
+          message: |
+            Problem started at {EVENT.TIME} on {EVENT.DATE}
+            Problem name: {EVENT.NAME}
+            Host: {HOST.NAME}
+            Severity: {EVENT.SEVERITY}
+            Operational data: {EVENT.OPDATA}
+            Original problem ID: {EVENT.ID}
+            {TRIGGER.URL}
+        - event_source: TRIGGERS
+          operation_mode: RECOVERY
+          subject: 'Resolved in {EVENT.DURATION}: {EVENT.NAME}'
+          message: |
+            Problem has been resolved at {EVENT.RECOVERY.TIME} on {EVENT.RECOVERY.DATE}
+            Problem name: {EVENT.NAME}
+            Problem duration: {EVENT.DURATION}
+            Host: {HOST.NAME}
+            Severity: {EVENT.SEVERITY}
+            Original problem ID: {EVENT.ID}
+            {TRIGGER.URL}
+        - event_source: TRIGGERS
+          operation_mode: UPDATE
+          subject: 'Problem: {EVENT.NAME}'
+          message: |
+            {USER.FULLNAME} {EVENT.UPDATE.ACTION} problem at {EVENT.UPDATE.DATE} {EVENT.UPDATE.TIME}.
+            {EVENT.UPDATE.MESSAGE}
+        - event_source: DISCOVERY
+          operation_mode: PROBLEM
+          subject: 'Discovery: {DISCOVERY.DEVICE.STATUS} {DISCOVERY.DEVICE.IPADDRESS}'
+          message: |
+            Discovery rule: {DISCOVERY.RULE.NAME}
+            
+            Device IP: {DISCOVERY.DEVICE.IPADDRESS}
+            Device DNS: {DISCOVERY.DEVICE.DNS}
+            Device status: {DISCOVERY.DEVICE.STATUS}
+            Device uptime: {DISCOVERY.DEVICE.UPTIME}
+            
+            Device service name: {DISCOVERY.SERVICE.NAME}
+            Device service port: {DISCOVERY.SERVICE.PORT}
+            Device service status: {DISCOVERY.SERVICE.STATUS}
+            Device service uptime: {DISCOVERY.SERVICE.UPTIME}
+        - event_source: AUTOREGISTRATION
+          operation_mode: PROBLEM
+          subject: 'Autoregistration: {HOST.HOST}'
+          message: |
+            Host name: {HOST.HOST}
+            Host IP: {HOST.IP}
+            Agent port: {HOST.PORT}
